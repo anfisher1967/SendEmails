@@ -1,0 +1,21 @@
+// Lateral Movement Detection
+// Detects suspicious lateral movement patterns and privilege escalation
+// MITRE ATT&CK: T1021 - Remote Services, T1134 - Access Token Manipulation
+
+SecurityEvent
+| where EventID in (4625, 4624, 4672)  // Failed/Successful logons, Admin logon
+| where TimeGenerated > ago(24h)
+| extend SourceIP = ClientIPAddress, TargetComputer = Computer
+| where SourceIP !in ("127.0.0.1", "::1")  // Filter localhost
+| summarize LogonAttempts = count(), UniqueSources = dcount(SourceIP) 
+    by TargetComputer, Account, EventID
+| where LogonAttempts > 5 or UniqueSources > 3
+| join kind=inner (
+    SecurityEvent
+    | where EventID == 4672  // Admin logon
+    | project AdminLogon = Computer, AdminAccount = Account, TimeGenerated
+) on $left.TargetComputer == $right.AdminLogon
+| where (TimeGenerated - AdminLogon) between (0d..1d)
+| project TargetComputer, Account, LogonAttempts, UniqueSources, 
+    AdminAccount, EventID
+| order by LogonAttempts desc

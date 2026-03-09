@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "managedIdentityResourceId": {
+      "value": ""
+    },
+    "toAddresses": {
+      "value": ""
+    },
+    "fromAddress": {
+      "value": ""
+    },
+    "emailsPerRecipient": {
+      "value": 20
+    },
+    "gtubePercentage": {
+      "value": 30
+    }
+  }
+}

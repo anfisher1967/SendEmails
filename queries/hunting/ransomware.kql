@@ -1,0 +1,18 @@
+// Ransomware Detection Hunt
+// Detects potential ransomware activity through file operations and process execution
+// MITRE ATT&CK: T1486 - Data Encrypted for Impact
+
+SecurityEvent
+| where EventID in (4688, 4689)  // Process creation/termination
+| where CommandLine contains "cipher" or CommandLine contains "vssadmin" 
+    or CommandLine contains "wbadmin" or CommandLine contains "bcdedit"
+| project TimeGenerated, Computer, Account, ProcessName, CommandLine, ParentProcessName
+| join kind=inner (
+    FileModifyEvents
+    | where ActionType in ("FileCreated", "FileModified")
+    | where FileExtension in (".enc", ".locked", ".crypto", ".blocker", ".crypt")
+    | project TimeGenerated, DeviceName, FilePath, FileExtension
+) on $left.Computer == $right.DeviceName
+| summarize RansomwareIndicators = count() by Computer, Account
+| where RansomwareIndicators > 5
+| order by RansomwareIndicators desc

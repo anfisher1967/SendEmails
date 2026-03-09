@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure OpenAI RBAC Risk Assessment & Remediation Plan</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 50px 40px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        .risk-badge {
+            display: inline-block;
+            background-color: #ff6b6b;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 15px;
+            font-size: 1.1em;
+        }
+        .executive-summary {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+        }
+        .executive-summary h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        .executive-summary p {
+            margin-bottom: 10px;
+            font-size: 1.05em;
+        }
+        .section {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 25px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .section h3 {
+            color: #764ba2;
+            font-size: 1.3em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        .attack-diagram {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .mermaid {
+            max-width: 100%;
+        }
+        .finding {
+            background: #ffe0e0;
+            border-left: 5px solid #ff6b6b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .finding strong {
+            color: #c92a2a;
+        }
+        .recommendation {
+            background: #e7f5ff;
+            border-left: 5px solid #4c6ef5;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .recommendation h4 {
+            color: #2c5aa0;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        .recommendation ul {
+            margin-left: 20px;
+        }
+        .recommendation li {
+            margin: 8px 0;
+        }
+        .action-plan {
+            background: #f0f9ff;
+            border-left: 5px solid #0ea5e9;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .action-plan h4 {
+            color: #0369a1;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .priority-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .priority-critical {
+            background: #ff6b6b;
+            color: white;
+        }
+        .priority-high {
+            background: #ffa94d;
+            color: white;
+        }
+        .priority-medium {
+            background: #ffd43b;
+            color: #333;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .stat-label {
+            font-size: 0.95em;
+            opacity: 0.95;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: #f9f9f9;
+        }
+        .comparison-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+        }
+        .comparison-table td {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .comparison-table tr:nth-child(even) {
+            background: #f5f5f5;
+        }
+        .current {
+            background: #ffe0e0;
+        }
+        .recommended {
+            background: #e7f5ff;
+        }
+        .timeline {
+            margin: 20px 0;
+        }
+        .timeline-item {
+            display: flex;
+            margin: 20px 0;
+            position: relative;
+        }
+        .timeline-marker {
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-right: 20px;
+        }
+        .timeline-content {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            flex-grow: 1;
+            border-left: 2px solid #667eea;
+            padding-left: 20px;
+        }
+        .timeline-content h4 {
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+            border-top: 1px solid #ddd;
+            margin-top: 40px;
+        }
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.95em;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            border-radius: 3px;
+            border: 2px solid #333;
+            flex-shrink: 0;
+        }
+        @media print {
+            body {
+                background: white;
+            }
+            .section, .header {
+                page-break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔐 Azure OpenAI Security Assessment</h1>
+            <p>RBAC Risk Analysis & Remediation Plan</p>
+            <p>Resource: <strong>mdc-d4ai-aoai-1 (gpt-4o deployment)</strong></p>
+            <div class="risk-badge">🔴 CRITICAL RISK LEVEL</div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="executive-summary">
+            <h2>Executive Summary</h2>
+            <p><strong>Situation:</strong> Our Azure OpenAI resource (mdc-d4ai-aoai-1) is exposed to significant security risks due to overly permissive access controls and active exploitation attempts.</p>
+            <p><strong>Immediate Concern:</strong> One user (Denise Charron) holds an Owner role with "*" (wildcard) permissions, allowing unrestricted access to the resource and its data. Additionally, 10+ other users have direct access, and 4 devices contain stored authentication credentials that could be leveraged in lateral movement attacks.</p>
+            <p><strong>Active Threat:</strong> We are currently experiencing jailbreak/prompt injection attacks (IP: 52.177.6.190) attempting to bypass AI safety guardrails on the gpt-4o model.</p>
+            <p><strong>Business Impact:</strong> Unauthorized access could result in data breaches, intellectual property theft, model manipulation, and compliance violations.</p>
+        </div>
+
+        <!-- Key Findings -->
+        <div class="section">
+            <h2>📊 Key Findings</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">10+</div>
+                    <div class="stat-label">Users with Direct Access</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">1</div>
+                    <div class="stat-label">Owner Role (Critical Risk)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">4</div>
+                    <div class="stat-label">Devices with Stored Credentials</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">1</div>
+                    <div class="stat-label">Active Threat (Ongoing)</div>
+                </div>
+            </div>
+
+            <h3>Critical Findings</h3>
+            <div class="finding">
+                <strong>Finding #1: Overly Permissive Owner Role</strong>
+                <p>Denise Charron has been assigned the Owner role on mdc-d4ai-aoai-1, which grants "*" (wildcard) permissions. This violates the Principle of Least Privilege and allows unrestricted access including the ability to delete, modify, and share the resource without additional controls.</p>
+            </div>
+
+            <div class="finding">
+                <strong>Finding #2: Excessive User Access</strong>
+                <p>10+ users have Azure AI User roles providing direct access to the resource. Without clear business justification or role differentiation, this creates multiple attack vectors and increases the likelihood of credential compromise.</p>
+            </div>
+
+            <div class="finding">
+                <strong>Finding #3: Credential Exposure on Devices</strong>
+                <p>Four devices (demopc, alpineski-u4090, desktop-u475, ashhe003) contain stored Entra ID user cookies/tokens. If compromised, attackers could impersonate these users and gain lateral movement access to the Azure OpenAI resource.</p>
+            </div>
+
+            <div class="finding">
+                <strong>Finding #4: Active Exploitation Attempts</strong>
+                <p>We are observing ongoing jailbreak attempts from IP 52.177.6.190 (US, Virginia) targeting our gpt-4o deployment. These are Type: User Prompt Injection Attacks (UPIA) attempting to bypass safety guardrails.</p>
+            </div>
+        </div>
+
+        <!-- Attack Paths Visualization -->
+        <div class="section">
+            <h2>🎯 Attack Paths Visualization</h2>
+            <p style="margin-bottom: 20px;">The diagram below illustrates the three primary attack vectors to mdc-d4ai-aoai-1:</p>
+            
+            <div class="attack-diagram">
+                <div class="mermaid">
+                    graph TB
+                        subgraph Users["Users with Direct Access"]
+                            U1["Denise Charron<br/>(Owner, Azure AI User)"]
+                            U2["Vardan Checheibaev<br/>(Azure AI User)"]
+                            U3["Sam Mukeshimana<br/>(Azure AI User)"]
+                            U4["Leni Mthi<br/>(Azure AI User)"]
+                            U5["Others<br/>6+ more users"]
+                        end
+                        
+                        subgraph Devices["Compromised Devices<br/>with Credentials"]
+                            D1["demopc<br/>Risk: High"]
+                            D2["alpineski-u4090<br/>Risk: Medium"]
+                            D3["desktop-u475<br/>Risk: Medium"]
+                            D4["ashhe003<br/>Risk: Low"]
+                        end
+                        
+                        subgraph Cookies["Entra User Cookies<br/>On Devices"]
+                            C1["Cookie: Vardan"]
+                            C2["Cookie: User1"]
+                            C3["Cookie: User2"]
+                            C4["Cookie: User3"]
+                        end
+                        
+                        subgraph Resource["Target Resource"]
+                            R["mdc-d4ai-aoai-1<br/>Azure OpenAI<br/>gpt-4o deployment"]
+                        end
+                        
+                        subgraph Threat["Active Threat"]
+                            T["Jailbreak Attempt<br/>IP: 52.177.6.190<br/>Type: Prompt Injection"]
+                        end
+                        
+                        U1 -->|Azure AI User role<br/>Reader role<br/>Owner role| R
+                        U2 -->|Azure AI User role<br/>full data access| R
+                        U3 -->|Azure AI User role| R
+                        U4 -->|Azure AI User role| R
+                        U5 -->|permissions| R
+                        
+                        D1 -->|contains| C1
+                        D2 -->|contains| C2
+                        D3 -->|contains| C3
+                        D4 -->|contains| C4
+                        
+                        C1 -->|authenticates as| U2
+                        C2 -->|authenticates as| U3
+                        C3 -->|authenticates as| U4
+                        C4 -->|authenticates as| U1
+                        
+                        U2 -->|lateral movement| R
+                        U3 -->|lateral movement| R
+                        U4 -->|lateral movement| R
+                        U1 -->|lateral movement| R
+                        
+                        T -->|exploits| R
+                        
+                        style R fill:#ff6b6b,stroke:#c92a2a,stroke-width:3px,color:#fff
+                        style U1 fill:#ffd43b,stroke:#f59f00,stroke-width:2px
+                        style T fill:#ff8787,stroke:#c92a2a,stroke-width:2px
+                        style D1 fill:#ff922b,stroke:#e67700,stroke-width:2px
+                        style D2 fill:#ffa94d,stroke:#fa5252,stroke-width:1px
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff6b6b;"></div>
+                    <span><strong>Red:</strong> Target resource (Critical - Azure OpenAI)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffd43b;"></div>
+                    <span><strong>Yellow:</strong> Owner-level user (Highest risk)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff922b;"></div>
+                    <span><strong>Orange:</strong> Compromised devices with credentials</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff8787;"></div>
+                    <span><strong>Light Red:</strong> Active threats (jailbreak attempts)</span>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 30px;">Three Primary Attack Vectors</h3>
+            <div class="action-plan">
+                <h4>🔴 Vector 1: Direct User Access</h4>
+                <p>10+ users have RBAC permissions for direct access to the resource. This includes Denise Charron with Owner role (most dangerous), and 9+ others with Azure AI User permissions.</p>
+            </div>
+
+            <div class="action-plan">
+                <h4>🟠 Vector 2: Lateral Movement via Compromised Devices</h4>
+                <p>Attack sequence: (1) Attacker compromises device, (2) Steals Entra ID user cookies/tokens, (3) Uses stolen credentials to authenticate as legitimate user, (4) Leverages user's permissions to access resource. Affected devices: demopc (High risk), alpineski-u4090 (Medium), desktop-u475 (Medium), ashhe003 (Low).</p>
+            </div>
+
+            <div class="action-plan">
+                <h4>🔴 Vector 3: Active Exploitation (Jailbreak/Prompt Injection)</h4>
+                <p>Ongoing attacks from 52.177.6.190 attempting User Prompt Injection Attacks (UPIA) to bypass AI safety guardrails. Objective is to extract sensitive data or manipulate model behavior.</p>
+            </div>
+        </div>
+
+        <!-- Current vs Recommended State -->
+        <div class="section">
+            <h2>🔄 Current State vs. Recommended State</h2>
+            
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Aspect</th>
+                        <th class="current">Current State</th>
+                        <th class="recommended">Recommended State</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Denise Charron Role</strong></td>
+                        <td class="current">Owner (wildcard "*" permissions)</td>
+                        <td class="recommended">Azure AI Developer or custom role with minimal permissions</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Access Model</strong></td>
+                        <td class="current">Permanent, unrestricted access for 10+ users</td>
+                        <td class="recommended">Tiered roles with time-limited, just-in-time escalation</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Authentication</strong></td>
+                        <td class="current">No MFA requirement; cookies stored on devices</td>
+                        <td class="recommended">Mandatory MFA + Conditional Access policies + device compliance checks</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Role Types</strong></td>
+                        <td class="current">Mixed Owner and Azure AI User roles without differentiation</td>
+                        <td class="recommended">Developer, Operator, Admin roles with clear separation</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Monitoring</strong></td>
+                        <td class="current">Limited visibility into access patterns</td>
+                        <td class="recommended">Azure Policy auditing + RBAC change alerts + audit logs reviewed quarterly</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="section">
+            <h2>💡 Strategic Recommendations</h2>
+
+            <h3>1. Implement Principle of Least Privilege (POLP)</h3>
+            <div class="recommendation">
+                <h4>📋 Action Items:</h4>
+                <ul>
+                    <li><strong>Remove Denise Charron's Owner role</strong> immediately and replace with Azure AI Developer role</li>
+                    <li><strong>Create custom role</strong> for resource-specific permissions if needed (limited to: read, write, deploy models only)</li>
+                    <li><strong>Audit all 10+ users</strong> and document business justification for each access grant</li>
+                    <li><strong>Right-size permissions</strong> - users should only have what they need for their role</li>
+                    <li><strong>Remove unnecessary Owner assignments</strong> at the resource level (keep at subscription/resource group level if operationally needed)</li>
+                </ul>
+            </div>
+
+            <h3>2. Role-Based Access Control (RBAC) Segmentation</h3>
+            <div class="recommendation">
+                <h4>📋 Proposed Role Structure:</h4>
+                <ul>
+                    <li><strong>Azure AI Developer:</strong> Deploy models, create deployments, read metrics (for development team)</li>
+                    <li><strong>Azure AI User:</strong> Query/use existing models, read results only (for end users)</li>
+                    <li><strong>Azure AI Cognitive Services User:</strong> Monitor and view resource health (for operators)</li>
+                    <li><strong>Custom Admin Role:</strong> Infrastructure changes only, require PIM approval (for platform team)</li>
+                    <li><strong>Owner:</strong> Reserved ONLY for subscription/resource group level, removed from individual resources</li>
+                </ul>
+            </div>
+
+            <h3>3. Just-In-Time (JIT) Privilege Escalation</h3>
+            <div class="recommendation">
+                <h4>📋 Implementation via Azure AD Privileged Identity Management (PIM):</h4>
+                <ul>
+                    <li><strong>Make all privileged roles "eligible" rather than "active"</strong> - users must request access</li>
+                    <li><strong>Require MFA + business justification</strong> for any escalation request</li>
+                    <li><strong>Set auto-expiration timers</strong> (e.g., 4-8 hours maximum for elevated access)</li>
+                    <li><strong>Enable approval workflows</strong> - manager or security team must approve escalations</li>
+                    <li><strong>Full audit trail</strong> - track who requested what, when, and why</li>
+                </ul>
+            </div>
+
+            <h3>4. Enforce Multi-Factor Authentication (MFA) & Conditional Access</h3>
+            <div class="recommendation">
+                <h4>📋 Policy Requirements:</h4>
+                <ul>
+                    <li><strong>Mandatory MFA</strong> for all users accessing mdc-d4ai-aoai-1</li>
+                    <li><strong>Device compliance requirement</strong> - only managed/compliant devices allowed</li>
+                    <li><strong>Location restriction</strong> - allow only from corporate network or approved VPN</li>
+                    <li><strong>Block legacy authentication</strong> - prevent weaker authentication methods</li>
+                    <li><strong>Block untrusted locations</strong> from accessing the resource</li>
+                    <li><strong>Require password change</strong> if sign-in risk is detected</li>
+                </ul>
+            </div>
+
+            <h3>5. Credential & Device Security</h3>
+            <div class="recommendation">
+                <h4>📋 Action Items:</h4>
+                <ul>
+                    <li><strong>Incident response for compromised devices</strong> - demopc (High), alpineski-u4090 (Medium), desktop-u475 (Medium)</li>
+                    <li><strong>Clear stored authentication tokens/cookies</strong> from all four devices</li>
+                    <li><strong>Force password reset</strong> for users who cached credentials on compromised devices</li>
+                    <li><strong>Enable Windows Hello / passwordless sign-in</strong> on corporate devices</li>
+                    <li><strong>Deploy Azure Key Vault</strong> for secret management instead of caching credentials</li>
+                </ul>
+            </div>
+
+            <h3>6. Monitor, Audit & Governance</h3>
+            <div class="recommendation">
+                <h4>📋 Implementation:</h4>
+                <ul>
+                    <li><strong>Enable Azure Policy</strong> to audit and flag assignments outside of approved roles</li>
+                    <li><strong>Set up alerts</strong> for any new Owner role assignments at the resource level</li>
+                    <li><strong>Quarterly access reviews</strong> - managers review and certify all user permissions</li>
+                    <li><strong>Monitor Azure activity logs</strong> for suspicious access patterns</li>
+                    <li><strong>Integrate with Security Information & Event Management (SIEM)</strong> for centralized monitoring</li>
+                    <li><strong>Establish SLA for remediation</strong> - non-compliant roles removed within 30 days</li>
+                </ul>
+            </div>
+
+            <h3>7. Threat Response (Active Jailbreak Attempts)</h3>
+            <div class="recommendation">
+                <h4>📋 Action Items:</h4>
+                <ul>
+                    <li><strong>Incident investigation</strong> - analyze patterns from IP 52.177.6.190</li>
+                    <li><strong>Enhance prompt filtering</strong> - strengthen Prompt Shields configuration</li>
+                    <li><strong>Rate limiting</strong> - implement stricter API rate limits to slow down brute-force attempts</li>
+                    <li><strong>IP blocking</strong> - consider blocking or throttling the source IP</li>
+                    <li><strong>Enhanced logging</strong> - capture all prompt injection attempts for forensic analysis</li>
+                    <li><strong>Model rollback</strong> - have a plan to quickly revert model if compromised</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Implementation Timeline -->
+        <div class="section">
+            <h2>⏱️ Implementation Timeline & Priorities</h2>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-marker">1</div>
+                    <div class="timeline-content">
+                        <h4><span class="priority-tag priority-critical">CRITICAL</span> Immediate (Week 1)</h4>
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li>Remove Denise Charron's Owner role and reassign to Azure AI Developer</li>
+                            <li>Enable MFA requirement for all users accessing mdc-d4ai-aoai-1</li>
+                            <li>Investigate and contain demopc (High risk device)</li>
+                            <li>Block or rate-limit IP 52.177.6.190 (active threat)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-marker">2</div>
+                    <div class="timeline-content">
+                        <h4><span class="priority-tag priority-high">HIGH</span> Short-term (Weeks 2-4)</h4>
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li>Implement Conditional Access policies (device compliance, location restrictions)</li>
+                            <li>Audit all 10+ users and document business justification</li>
+                            <li>Right-size remaining user roles (move unnecessary users to lower privilege roles)</li>
+                            <li>Clear stored credentials from all four compromised devices</li>
+                            <li>Force password reset for affected users</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-marker">3</div>
+                    <div class="timeline-content">
+                        <h4><span class="priority-tag priority-high">HIGH</span> Medium-term (Weeks 5-8)</h4>
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li>Deploy Azure AD PIM for just-in-time privilege escalation</li>
+                            <li>Create and implement custom RBAC roles if needed</li>
+                            <li>Enable Azure Policy auditing for RBAC compliance</li>
+                            <li>Set up automated alerts for unauthorized role assignments</li>
+                            <li>Configure quarterly access review process</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-marker">4</div>
+                    <div class="timeline-content">
+                        <h4><span class="priority-tag priority-medium">MEDIUM</span> Ongoing (Monthly/Quarterly)</h4>
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li>Conduct quarterly access reviews and certifications</li>
+                            <li>Monitor Azure activity logs and SIEM alerts</li>
+                            <li>Review PIM approval logs and escalation patterns</li>
+                            <li>Update threat intelligence and adjust blocking rules</li>
+                            <li>Refresh Conditional Access policies as needed</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Business Impact -->
+        <div class="section">
+            <h2>💼 Business Impact & Risk Mitigation</h2>
+
+            <h3>Current Risk Exposure</h3>
+            <div class="finding">
+                <strong>Without remediation:</strong>
+                <ul style="margin-top: 10px; margin-left: 20px;">
+                    <li><strong>Data Breach Risk:</strong> Unauthorized access to Azure OpenAI could expose proprietary models, training data, and query results</li>
+                    <li><strong>Model Manipulation:</strong> Owner-level access allows adversaries to retrain, modify, or poison the gpt-4o model</li>
+                    <li><strong>Compliance Violations:</strong> Non-compliance with SOC 2, ISO 27001, and industry standards could result in audit failures</li>
+                    <li><strong>Reputational Damage:</strong> Security breach involving AI systems could damage customer trust and brand reputation</li>
+                    <li><strong>Operational Disruption:</strong> Ransomware or service disruption could impact business-critical AI applications</li>
+                    <li><strong>Regulatory Fines:</strong> GDPR, CCPA, and other regulations could impose significant penalties</li>
+                </ul>
+            </div>
+
+            <h3>Mitigation Value</h3>
+            <div class="recommendation">
+                <h4>By implementing these recommendations:</h4>
+                <ul>
+                    <li>✅ <strong>Reduces attack surface</strong> by 70-80% through proper RBAC implementation</li>
+                    <li>✅ <strong>Eliminates the most critical risk</strong> (Owner role wildcard permissions)</li>
+                    <li>✅ <strong>Prevents lateral movement</strong> through Conditional Access and device compliance checks</li>
+                    <li>✅ <strong>Enables rapid incident response</strong> through comprehensive audit logging and alerting</li>
+                    <li>✅ <strong>Achieves compliance requirements</strong> (SOC 2, ISO 27001, CIS Controls)</li>
+                    <li>✅ <strong>Protects intellectual property</strong> by restricting access to authorized personnel only</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Resource Requirements -->
+        <div class="section">
+            <h2>📦 Resource Requirements & Effort Estimate</h2>
+
+            <h3>Required Tools/Licenses</h3>
+            <ul style="margin-left: 20px;">
+                <li>Azure AD Premium P2 (for PIM and Conditional Access) - typically included in enterprise licenses</li>
+                <li>Microsoft Defender for Cloud (for monitoring and compliance alerts)</li>
+                <li>Azure Policy (included in Azure subscription)</li>
+            </ul>
+
+            <h3>Implementation Effort</h3>
+            <ul style="margin-left: 20px; margin-top: 15px;">
+                <li><strong>Security/Cloud Team:</strong> 40-60 hours (RBAC design, policy implementation, monitoring setup)</li>
+                <li><strong>Azure Administrator:</strong> 20-30 hours (role assignments, PIM configuration, testing)</li>
+                <li><strong>Application Owner/Manager:</strong> 10-15 hours (access reviews, user communication, approvals)</li>
+                <li><strong>Total Estimate:</strong> 70-105 hours over 8 weeks</li>
+            </ul>
+
+            <h3>Cost Impact</h3>
+            <ul style="margin-left: 20px; margin-top: 15px;">
+                <li><strong>Azure AD Premium P2:</strong> Already included in most enterprise E3/E5 licenses</li>
+                <li><strong>Defender for Cloud:</strong> Minimal additional cost (typically $15-25/resource/month)</li>
+                <li><strong>Administrative overhead:</strong> One-time implementation + 4-8 hours/month for ongoing reviews</li>
+                <li><strong>ROI:</strong> High - prevents potential data breach costs (estimated $1M+) and compliance fines</li>
+            </ul>
+        </div>
+
+        <!-- Conclusion -->
+        <div class="section">
+            <h2>🎯 Conclusion</h2>
+            <p style="font-size: 1.05em; margin-bottom: 15px;">
+                The current security posture of mdc-d4ai-aoai-1 is <strong>unacceptable for a production Azure OpenAI resource</strong>. We have identified three active attack vectors with an active exploitation attempt currently underway.
+            </p>
+            <p style="font-size: 1.05em; margin-bottom: 15px;">
+                <strong>We must take immediate action</strong> to:
+            </p>
+            <ul style="margin-left: 20px; font-size: 1.05em;">
+                <li>Remove over-privileged access (Owner role)</li>
+                <li>Enforce mandatory MFA and Conditional Access</li>
+                <li>Implement role-based access control with appropriate segregation</li>
+                <li>Deploy just-in-time privilege escalation</li>
+                <li>Establish comprehensive monitoring and audit trails</li>
+            </ul>
+            <p style="margin-top: 20px; font-size: 1.05em;">
+                <strong>Recommended Next Steps:</strong>
+            </p>
+            <ol style="margin-left: 20px; font-size: 1.05em;">
+                <li>Executive review and approval of this security assessment</li>
+                <li>Schedule immediate security working group meeting to prioritize actions</li>
+                <li>Begin immediate remediation on Week 1 critical items</li>
+                <li>Assign owners for each recommendation track</li>
+                <li>Establish weekly progress tracking meetings</li>
+            </ol>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Report Generated:</strong> February 18, 2026</p>
+            <p><strong>Classification:</strong> Internal Use Only - Security Sensitive</p>
+            <p><strong>Review Frequency:</strong> Monthly until all critical items resolved, then quarterly</p>
+            <p style="margin-top: 20px; font-style: italic;">For questions regarding this assessment, please contact your Security or Cloud Architecture team.</p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+        mermaid.contentLoaded();
+    </script>
+</body>
+</html>

@@ -1,0 +1,342 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Deploys an Azure Container Instance running the MDO Telemetry container image. Optionally deploys a NAT Gateway for static egress IP control."
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "containerGroupName": {
+      "type": "string",
+      "defaultValue": "mdotelemetry",
+      "metadata": {
+        "description": "Name of the container group."
+      }
+    },
+    "containerImage": {
+      "type": "string",
+      "defaultValue": "ghcr.io/jonade/mdotelemetry:latest",
+      "metadata": {
+        "description": "Container image to deploy."
+      }
+    },
+    "cpuCores": {
+      "type": "string",
+      "defaultValue": "0.2",
+      "metadata": {
+        "description": "CPU cores allocated to the container."
+      }
+    },
+    "memoryInGb": {
+      "type": "string",
+      "defaultValue": "0.2",
+      "metadata": {
+        "description": "Memory (GB) allocated to the container."
+      }
+    },
+    "emails": {
+      "type": "string",
+      "metadata": {
+        "description": "Comma-separated list of mailbox email addresses to send telemetry to."
+      }
+    },
+    "smtpHost": {
+      "type": "string",
+      "metadata": {
+        "description": "SMTP server hostname (e.g. contoso-com.mail.protection.outlook.com)."
+      }
+    },
+    "deployNatGateway": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Set to true to deploy a NAT Gateway for static egress IP control. Incurs additional cost."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "mdotelemetry-vnet",
+      "metadata": {
+        "description": "Name of the virtual network (only used when deployNatGateway is true)."
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "defaultValue": "mdotelemetry-subnet",
+      "metadata": {
+        "description": "Name of the subnet (only used when deployNatGateway is true)."
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.183.10.0/24",
+      "metadata": {
+        "description": "Address space for the VNet and subnet."
+      }
+    },
+    "natGatewayName": {
+      "type": "string",
+      "defaultValue": "natgateway",
+      "metadata": {
+        "description": "Name of the NAT Gateway resource."
+      }
+    },
+    "publicIpName": {
+      "type": "string",
+      "defaultValue": "nat-pip",
+      "metadata": {
+        "description": "Name of the public IP for the NAT Gateway."
+      }
+    },
+    "nsgName": {
+      "type": "string",
+      "defaultValue": "mdotelemetry-nsg",
+      "metadata": {
+        "description": "Name of the Network Security Group."
+      }
+    }
+  },
+  "variables": {
+    "subnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+  },
+  "resources": [
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('publicIpName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "publicIPAddressVersion": "IPv4"
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/natGateways",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('natGatewayName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+      ],
+      "properties": {
+        "publicIpAddresses": [
+          {
+            "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('nsgName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-smtp",
+            "properties": {
+              "description": "Allow SMTP",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "25",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Outbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/natGateways', parameters('natGatewayName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "dhcpOptions": {
+          "dnsServers": [
+            "1.1.1.1",
+            "1.0.0.1"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[parameters('subnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('vnetAddressPrefix')]",
+              "natGateway": {
+                "id": "[resourceId('Microsoft.Network/natGateways', parameters('natGatewayName'))]"
+              },
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+              },
+              "delegations": [
+                {
+                  "name": "Microsoft.ContainerInstance.containerGroups",
+                  "properties": {
+                    "serviceName": "Microsoft.ContainerInstance/containerGroups"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[not(parameters('deployNatGateway'))]",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('containerGroupName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "osType": "Linux",
+        "containers": [
+          {
+            "name": "[parameters('containerGroupName')]",
+            "properties": {
+              "image": "[parameters('containerImage')]",
+              "ports": [
+                {
+                  "port": 80,
+                  "protocol": "TCP"
+                }
+              ],
+              "environmentVariables": [
+                {
+                  "name": "EMAILS",
+                  "value": "[parameters('emails')]"
+                },
+                {
+                  "name": "SMTPHOST",
+                  "value": "[parameters('smtpHost')]"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "[parameters('cpuCores')]",
+                  "memoryInGB": "[parameters('memoryInGb')]"
+                }
+              }
+            }
+          }
+        ],
+        "ipAddress": {
+          "type": "Public",
+          "ports": [
+            {
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('containerGroupName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+      ],
+      "properties": {
+        "osType": "Linux",
+        "containers": [
+          {
+            "name": "[parameters('containerGroupName')]",
+            "properties": {
+              "image": "[parameters('containerImage')]",
+              "ports": [
+                {
+                  "port": 80,
+                  "protocol": "TCP"
+                }
+              ],
+              "environmentVariables": [
+                {
+                  "name": "EMAILS",
+                  "value": "[parameters('emails')]"
+                },
+                {
+                  "name": "SMTPHOST",
+                  "value": "[parameters('smtpHost')]"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "[parameters('cpuCores')]",
+                  "memoryInGB": "[parameters('memoryInGb')]"
+                }
+              }
+            }
+          }
+        ],
+        "subnetIds": [
+          {
+            "id": "[variables('subnetId')]",
+            "name": "[parameters('subnetName')]"
+          }
+        ],
+        "ipAddress": {
+          "type": "Private",
+          "ports": [
+            {
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "containerGroupName": {
+      "type": "string",
+      "value": "[parameters('containerGroupName')]"
+    },
+    "containerGroupProvisioningState": {
+      "type": "string",
+      "value": "[if(parameters('deployNatGateway'), reference(resourceId('Microsoft.ContainerInstance/containerGroups', parameters('containerGroupName')), '2023-05-01').provisioningState, reference(resourceId('Microsoft.ContainerInstance/containerGroups', parameters('containerGroupName')), '2023-05-01').provisioningState)]"
+    },
+    "ipAddress": {
+      "condition": "[not(parameters('deployNatGateway'))]",
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups', parameters('containerGroupName')), '2023-05-01').ipAddress.ip]"
+    },
+    "natGatewayPublicIp": {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName')), '2023-11-01').ipAddress]"
+    }
+  }
+}

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attack Paths to mdc-d4ai-aoai-1</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 40px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #1a1a1a;
+            border-bottom: 3px solid #ff6b6b;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 30px;
+        }
+        .diagram-section {
+            margin: 30px 0;
+            text-align: center;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .legend {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #ff6b6b;
+        }
+        .legend-item {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 15px;
+            border-radius: 3px;
+            border: 2px solid #333;
+        }
+        .risk-section {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #ffe0e0;
+            border-left: 4px solid #c92a2a;
+            border-radius: 4px;
+        }
+        .attack-vector {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            border-left: 3px solid #999;
+        }
+        .attack-vector strong {
+            color: #d9534f;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔴 Attack Paths to mdc-d4ai-aoai-1 (Azure OpenAI)</h1>
+        
+        <div class="diagram-section">
+            <div class="mermaid">
+                graph TB
+                    subgraph Users["Users with Direct Access"]
+                        U1["Denise Charron<br/>(Owner, Azure AI User)"]
+                        U2["Vardan Checheibaev<br/>(Azure AI User)"]
+                        U3["Sam Mukeshimana<br/>(Azure AI User)"]
+                        U4["Leni Mthi<br/>(Azure AI User)"]
+                        U5["Others<br/>6+ more users"]
+                    end
+                    
+                    subgraph Devices["Compromised Devices<br/>with Credentials"]
+                        D1["demopc<br/>Risk: High"]
+                        D2["alpineski-u4090<br/>Risk: Medium"]
+                        D3["desktop-u475<br/>Risk: Medium"]
+                        D4["ashhe003<br/>Risk: Low"]
+                    end
+                    
+                    subgraph Cookies["Entra User Cookies<br/>On Devices"]
+                        C1["Cookie: Vardan"]
+                        C2["Cookie: User1"]
+                        C3["Cookie: User2"]
+                        C4["Cookie: User3"]
+                    end
+                    
+                    subgraph Resource["Target Resource"]
+                        R["mdc-d4ai-aoai-1<br/>Azure OpenAI<br/>gpt-4o deployment"]
+                    end
+                    
+                    subgraph Threat["Active Threat"]
+                        T["Jailbreak Attempt<br/>IP: 52.177.6.190<br/>Type: Prompt Injection"]
+                    end
+                    
+                    U1 -->|Azure AI User role<br/>Reader role<br/>Owner role| R
+                    U2 -->|Azure AI User role<br/>full data access| R
+                    U3 -->|Azure AI User role| R
+                    U4 -->|Azure AI User role| R
+                    U5 -->|permissions| R
+                    
+                    D1 -->|contains| C1
+                    D2 -->|contains| C2
+                    D3 -->|contains| C3
+                    D4 -->|contains| C4
+                    
+                    C1 -->|authenticates as| U2
+                    C2 -->|authenticates as| U3
+                    C3 -->|authenticates as| U4
+                    C4 -->|authenticates as| U1
+                    
+                    U2 -->|lateral movement| R
+                    U3 -->|lateral movement| R
+                    U4 -->|lateral movement| R
+                    U1 -->|lateral movement| R
+                    
+                    T -->|exploits| R
+                    
+                    style R fill:#ff6b6b,stroke:#c92a2a,stroke-width:3px,color:#fff
+                    style U1 fill:#ffd43b,stroke:#f59f00,stroke-width:2px
+                    style T fill:#ff8787,stroke:#c92a2a,stroke-width:2px
+                    style D1 fill:#ff922b,stroke:#e67700,stroke-width:2px
+                    style D2 fill:#ffa94d,stroke:#fa5252,stroke-width:1px
+            </div>
+        </div>
+
+        <div class="legend">
+            <h3>Color Legend</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff6b6b;"></div>
+                <span><strong>Red:</strong> Target resource (Critical - Azure OpenAI)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ffd43b;"></div>
+                <span><strong>Yellow:</strong> Owner-level user (Highest risk - full permissions)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff922b;"></div>
+                <span><strong>Orange:</strong> Compromised devices with stored credentials</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff8787;"></div>
+                <span><strong>Light Red:</strong> Active threats (jailbreak/prompt injection)</span>
+            </div>
+        </div>
+
+        <h2>🎯 Attack Vectors</h2>
+        
+        <div class="attack-vector">
+            <strong>1. Direct User Access (Left side of graph)</strong>
+            <p>10+ users have RBAC permissions for direct access:</p>
+            <ul>
+                <li><strong>Denise Charron</strong> - Owner role (most dangerous: "*" permissions)</li>
+                <li><strong>Vardan Checheibaev</strong> - Azure AI User + Reader roles</li>
+                <li><strong>Sam Mukeshimana</strong> - Azure AI User role</li>
+                <li><strong>Leni Mthi</strong> - Azure AI User role</li>
+                <li>6+ additional users with Azure AI User permissions</li>
+            </ul>
+        </div>
+
+        <div class="attack-vector">
+            <strong>2. Lateral Movement via Compromised Devices (Middle chain)</strong>
+            <p>Attack sequence:</p>
+            <ul>
+                <li>Attacker compromises device and steals Entra user cookies</li>
+                <li>Uses stolen cookies to authenticate as legitimate user</li>
+                <li>Leverages user's Azure AI permissions to access resource</li>
+                <li><strong>Affected Devices:</strong> demopc (High), alpineski-u4090 (Medium), desktop-u475 (Medium), ashhe003 (Low)</li>
+            </ul>
+        </div>
+
+        <div class="attack-vector">
+            <strong>3. Active Threat - Jailbreak/Prompt Injection (Right side)</strong>
+            <p>Ongoing exploitation attempt:</p>
+            <ul>
+                <li><strong>Attack Type:</strong> User Prompt Injection Attack (UPIA)</li>
+                <li><strong>Source IP:</strong> 52.177.6.190 (US, Virginia)</li>
+                <li><strong>Target:</strong> gpt-4o model deployment</li>
+                <li><strong>Objective:</strong> Bypass AI safety guardrails to extract sensitive data</li>
+                <li><strong>Status:</strong> Blocked by Prompt Shields but attempts ongoing</li>
+            </ul>
+        </div>
+
+        <div class="risk-section">
+            <h2>⚠️ Critical Risks & Recommendations</h2>
+            <ul>
+                <li><strong>Overly Permissive RBAC:</strong> Denise Charron's Owner role grants "*" permissions. Should be limited to specific data actions.</li>
+                <li><strong>Credential Exposure:</strong> Multiple devices store Entra user tokens. Recommend enforcing Conditional Access policies.</li>
+                <li><strong>Active Exploitation:</strong> Jailbreak attempts are ongoing. Enhance prompt filtering and monitoring.</li>
+                <li><strong>No Blast Radius Containment:</strong> Azure AI resource lacks outbound connections but is highly exposed inbound.</li>
+                <li><strong>Minimize Access:</strong> Review and reduce the number of users with Azure AI User role permissions.</li>
+                <li><strong>Enable MFA:</strong> Enforce multi-factor authentication for all users with access to this resource.</li>
+            </ul>
+        </div>
+
+        <h2>📊 Exposure Summary</h2>
+        <ul>
+            <li><strong>Total Users with Access:</strong> 10+</li>
+            <li><strong>Devices with Stored Credentials:</strong> 4</li>
+            <li><strong>Users with Owner Role:</strong> 1 (High Risk)</li>
+            <li><strong>Active Threats:</strong> 1 (Jailbreak attempt)</li>
+            <li><strong>Overall Risk Level:</strong> 🔴 CRITICAL</li>
+        </ul>
+
+        <p style="margin-top: 40px; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px;">
+            Document generated: February 18, 2026<br>
+            Resource: mdc-d4ai-aoai-1 (Azure OpenAI - gpt-4o deployment)<br>
+            Analysis Source: Microsoft Sentinel Graph Analysis
+        </p>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+        mermaid.contentLoaded();
+    </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+// Device Context Enrichment
+// Gathers device and security posture context from multiple Sentinel tables
+// Used by AnalystBot01 agent for device enrichment
+
+DeviceInfo
+| where TimeGenerated > ago(30d)
+| summarize arg_max(TimeGenerated, *) by DeviceId
+| extend 
+    OSPlatform = OSPlatform,
+    OSVersion = OSVersion,
+    DeviceHealthStatus = iff(OSVersion startswith "10" or OSVersion startswith "11", "Supported", "Legacy")
+| join kind=leftouter (
+    DeviceProcessEvents
+    | where TimeGenerated > ago(7d)
+    | summarize ProcessCount = dcount(ProcessName), 
+        SuspiciousProcessCount = dcountif(ProcessName, 
+            ProcessName in ("cmd.exe", "powershell.exe", "psexec.exe", "wmic.exe"))
+        by DeviceId
+) on DeviceId
+| join kind=leftouter (
+    SecurityEvent
+    | where EventID in (4624, 4625)
+    | where TimeGenerated > ago(7d)
+    | summarize LogonAttempts = count(), 
+        FailedLogins = dcountif(EventID, EventID == 4625)
+        by DeviceName
+) on $left.DeviceName == $right.DeviceName
+| project DeviceId, DeviceName, OSPlatform, OSVersion, DeviceHealthStatus,
+    ProcessCount, SuspiciousProcessCount, LogonAttempts, FailedLogins

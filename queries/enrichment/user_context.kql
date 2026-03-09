@@ -1,0 +1,26 @@
+// User Context Enrichment
+// Gathers user context from multiple Sentinel tables for alerting and investigation
+// Used by AnalystBot01 agent for alert enrichment
+
+let InvestigationTimeWindow = 30d;
+SigninLogs
+| where TimeGenerated > ago(7d)
+| extend UserInitiatedSignin = 1
+| project UserPrincipalName, UserDisplayName, SigninTime = TimeGenerated, 
+    IPAddress, Location, Status = ResultDescription, AppDisplayName
+| join kind=leftouter (
+    AuditLogs
+    | where TimeGenerated > ago(InvestigationTimeWindow)
+    | where ActivityDisplayName in ("Add user", "Add member to group", "Update user")
+    | project AuditUser = InitiatedBy.user.userPrincipalName, 
+        AuditAction = ActivityDisplayName, LastAuditTime = TimeGenerated
+) on UserPrincipalName == AuditUser
+| join kind=leftouter (
+    SigninLogs
+    | where TimeGenerated > ago(InvestigationTimeWindow)
+    | where ResultDescription !startswith "Success"
+    | summarize FailedSignins = count() by FailedUser = UserPrincipalName
+) on UserPrincipalName == FailedUser
+| project UserPrincipalName, UserDisplayName, LatestSignin = SigninTime, 
+    IPAddress, Location, Status, AppDisplayName, LastAuditAction, 
+    FailedSignins, AuditedTime = LastAuditTime
