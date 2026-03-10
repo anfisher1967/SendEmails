@@ -1,0 +1,154 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Deploys an Azure Automation Account with a PowerShell runbook and daily schedule to restart the send-random-emails container group."
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "automationAccountName": {
+      "type": "string",
+      "defaultValue": "send-emails-automation",
+      "metadata": {
+        "description": "Name of the Automation Account."
+      }
+    },
+    "containerGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the existing ACI container group to restart daily."
+      }
+    },
+    "containerResourceGroup": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "Resource group containing the container group (defaults to the same resource group)."
+      }
+    },
+    "scheduleStartTime": {
+      "type": "string",
+      "metadata": {
+        "description": "UTC start time for the daily schedule in ISO 8601 format (e.g. 2026-03-11T08:00:00+00:00). Must be at least 5 minutes in the future."
+      }
+    },
+    "timeZone": {
+      "type": "string",
+      "defaultValue": "UTC",
+      "metadata": {
+        "description": "Time zone for the schedule (e.g. UTC, Eastern Standard Time, Pacific Standard Time)."
+      }
+    }
+  },
+  "variables": {
+    "runbookName": "Restart-SendEmailsContainer",
+    "scheduleName": "DailySendEmails",
+    "jobScheduleName": "[guid(resourceGroup().id, variables('runbookName'), variables('scheduleName'))]",
+    "runbookScriptUri": "https://raw.githubusercontent.com/anfisher1967/MCP-server/main/arm-templates/Restart-SendEmailsContainer.ps1"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('automationAccountName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "Free"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('runbookName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ],
+      "properties": {
+        "runbookType": "PowerShell72",
+        "description": "Restarts the send-random-emails ACI container group.",
+        "logProgress": false,
+        "logVerbose": false,
+        "publishContentLink": {
+          "uri": "[variables('runbookScriptUri')]",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('scheduleName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ],
+      "properties": {
+        "frequency": "Day",
+        "interval": 1,
+        "startTime": "[parameters('scheduleStartTime')]",
+        "timeZone": "[parameters('timeZone')]",
+        "description": "Triggers the email container restart once daily."
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('jobScheduleName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), variables('runbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), variables('scheduleName'))]"
+      ],
+      "properties": {
+        "runbook": {
+          "name": "[variables('runbookName')]"
+        },
+        "schedule": {
+          "name": "[variables('scheduleName')]"
+        },
+        "parameters": {
+          "ResourceGroupName": "[parameters('containerResourceGroup')]",
+          "ContainerGroupName": "[parameters('containerGroupName')]",
+          "SubscriptionId": "[subscription().subscriptionId]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, parameters('automationAccountName'), 'Contributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "principalId": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    }
+  ],
+  "outputs": {
+    "automationAccountId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+    },
+    "automationPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
+    },
+    "note": {
+      "type": "string",
+      "value": "The Automation Account has been granted Contributor on this resource group so it can restart the container. You may scope this down to just the container group if preferred."
+    }
+  }
+}
