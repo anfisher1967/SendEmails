@@ -1,8 +1,8 @@
 # SendEmails
 
-This project deploys a PowerShell deployment script that sends random test emails (with optional GTUBE spam test strings) via Microsoft Graph API. Requires a User-Assigned Managed Identity with `Mail.Send` application permission.
+This project deploys a PowerShell script that sends random test emails via Microsoft Graph API. It requires a User-Assigned Managed Identity with `Mail.Send` application permission.
 
-There are three steps to follow to get it to work correctly. First, you must manually run the following commaands in the Azure CLI. Then you will deploy the ARM template "Deploy Random Email Script" and finally deploy the ARM template "Deploy Daily Email Schedule".
+There are three steps to get it to work correctly. First, you must manually run the following commaands in the Azure CLI. Then you will deploy the ARM template "Deploy Random Email Script" and finally deploy the ARM template "Deploy Daily Email Schedule".
 
 ### Prerequisites for Random Email Script
 
