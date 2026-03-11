@@ -7,8 +7,41 @@
 Deploys a PowerShell deployment script that sends random test emails (with optional GTUBE spam test strings) via Microsoft Graph API. Requires a User-Assigned Managed Identity with `Mail.Send` application permission.
 
 ### Prerequisites for Random Email Script
-1. A **User-Assigned Managed Identity** with `Mail.Send` Graph API application permission
-2. The managed identity resource ID (paste into the deployment parameters)
+
+Using the Azure CLI, follow these instructions to create and configure the managed identity:
+
+#### 1. Create a Managed Identity
+
+```bash
+az identity create --name "SendRandomEmails-MI" --resource-group <yourresourcegroup>
+```
+
+#### 2. Get the Identity's Resource ID (keep this for later)
+
+```bash
+az identity show --name "SendRandomEmails-MI" --resource-group <yourresourcegroup> --query id -o tsv
+```
+
+#### 3. Get the Identity's Principal ID
+
+```powershell
+$principalId = az identity show --name "SendRandomEmails-MI" --resource-group <yourresourcegroup> --query principalId -o tsv
+```
+
+#### 4. Grant Mail.Send Application Permission via Microsoft Graph
+
+> **Note:** Requires Global Admin or Privileged Role Admin.
+
+```powershell
+Connect-MgGraph -Scopes "AppRoleAssignment.ReadWrite.All"
+$graphSp = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
+$mailSendRole = $graphSp.AppRoles | Where-Object { $_.Value -eq "Mail.Send" }
+New-MgServicePrincipalAppRoleAssignment `
+    -ServicePrincipalId (Get-MgServicePrincipal -Filter "displayName eq 'SendRandomEmails-MI'").Id `
+    -PrincipalId (Get-MgServicePrincipal -Filter "displayName eq 'SendRandomEmails-MI'").Id `
+    -AppRoleId $mailSendRole.Id `
+    -ResourceId $graphSp.Id
+```
 
 ## Deploy Daily Email Schedule
 
