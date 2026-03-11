@@ -1,8 +1,7 @@
 # SendEmails
 
-## Deploy Random Email Script
+#### This project has three steps. First, you mush manually run the following commaands in the Azure CLI. Then you will deploy the ARM template Deploy Random Email Script and finally deploy the ARM template Deploy Daily Email Schedule.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2Fmain%2Farm-templates%2Fsend-random-emails-deploy.json)
 
 Deploys a PowerShell deployment script that sends random test emails (with optional GTUBE spam test strings) via Microsoft Graph API. Requires a User-Assigned Managed Identity with `Mail.Send` application permission.
 
@@ -42,6 +41,9 @@ New-MgServicePrincipalAppRoleAssignment `
     -AppRoleId $mailSendRole.Id `
     -ResourceId $graphSp.Id
 ```
+## Deploy Random Email Script
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2Fmain%2Farm-templates%2Fsend-random-emails-deploy.json)
 
 ## Deploy Daily Email Schedule
 
