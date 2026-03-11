@@ -1,9 +1,8 @@
 # SendEmails
 
-#### This project has three steps. First, you must manually run the following commaands in the Azure CLI. Then you will deploy the ARM template "Deploy Random Email Script" and finally deploy the ARM template "Deploy Daily Email Schedule".
+This project deploys a PowerShell deployment script that sends random test emails (with optional GTUBE spam test strings) via Microsoft Graph API. Requires a User-Assigned Managed Identity with `Mail.Send` application permission.
 
-
-Deploys a PowerShell deployment script that sends random test emails (with optional GTUBE spam test strings) via Microsoft Graph API. Requires a User-Assigned Managed Identity with `Mail.Send` application permission.
+There are three steps to follow to get it to work correctly. First, you must manually run the following commaands in the Azure CLI. Then you will deploy the ARM template "Deploy Random Email Script" and finally deploy the ARM template "Deploy Daily Email Schedule".
 
 ### Prerequisites for Random Email Script
 
@@ -15,7 +14,7 @@ Using the Azure CLI, follow these instructions to create and configure the manag
 az identity create --name "SendRandomEmails-MI" --resource-group <yourresourcegroup>
 ```
 
-#### 2. Get the Identity's Resource ID (keep this for later)
+#### 2. Get the Identity's Resource ID (Save this value for later. You will need it for the first ARM template)
 
 ```bash
 az identity show --name "SendRandomEmails-MI" --resource-group <yourresourcegroup> --query id -o tsv
@@ -47,7 +46,7 @@ New-MgServicePrincipalAppRoleAssignment `
 
 ## Deploy Daily Email Schedule
 
-#### This created an automation account and schedules the emails to be sent daily at 8 am. You can change this as needed.
+This creates an automation account and schedules the emails to be sent daily at 8 am. You can change this as needed.
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2Fmain%2Farm-templates%2Fsend-random-emails-schedule.json)
 
