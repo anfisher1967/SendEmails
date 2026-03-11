@@ -1,139 +1,141 @@
-{
-  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-  "contentVersion": "1.0.0.0",
-  "metadata": {
-    "description": "Deploys an Azure Container Instance running PowerShell that sends random test emails via Microsoft Graph API. Requires a User-Assigned Managed Identity with Mail.Send Graph API application permission."
-  },
-  "parameters": {
-    "location": {
-      "type": "string",
-      "defaultValue": "[resourceGroup().location]",
-      "metadata": {
-        "description": "Azure region for all resources."
-      }
-    },
-    "managedIdentityResourceId": {
-      "type": "string",
-      "metadata": {
-        "description": "Full resource ID of a User-Assigned Managed Identity that has Mail.Send application permission on Microsoft Graph. Example: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{name}"
-      }
-    },
-    "contentZipUrl": {
-      "type": "string",
-      "defaultValue": "https://leeejeffries-my.sharepoint.com/:u:/p/leee_jeffries/EZtHB7ripE5Gs1f8o8s4dLEBx7tdGgPqFhVtdLm4Nor-yw?download=1",
-      "metadata": {
-        "description": "URL to download the Random_Content.zip file containing ebook.txt, MOV, MP3, and JPG folders."
-      }
-    },
-    "toAddresses": {
-      "type": "string",
-      "metadata": {
-        "description": "Comma-separated list of recipient email addresses."
-      }
-    },
-    "fromAddress": {
-      "type": "string",
-      "metadata": {
-        "description": "Sender email address (must be a valid mailbox the managed identity can send as)."
-      }
-    },
-    "emailsPerRecipient": {
-      "type": "int",
-      "defaultValue": 20,
-      "metadata": {
-        "description": "Number of emails to send to each recipient."
-      }
-    },
-    "gtubePercentage": {
-      "type": "int",
-      "defaultValue": 30,
-      "minValue": 0,
-      "maxValue": 100,
-      "metadata": {
-        "description": "Percentage of emails that will include the GTUBE spam test string (0-100)."
-      }
-    }
-  },
-  "variables": {
-    "containerGroupName": "[format('send-emails-{0}', uniqueString(resourceGroup().id, 'SendRandomEmails'))]",
-    "scriptContent": "param(\n    [string]$ContentZipUrl,\n    [string]$ToAddresses,\n    [string]$FromAddress,\n    [int]$EmailsPerRecipient = 20,\n    [int]$GtubePercentage = 30\n)\n\n$ErrorActionPreference = 'Stop'\n\ntry {\n\n# --- Trust PSGallery ---\nWrite-Output \"$(Get-Date) Configuring PSGallery...\"\n[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\nSet-PSRepository -Name PSGallery -InstallationPolicy Trusted\n\n# --- Install Microsoft.Graph.Users.Actions module ---\nWrite-Output \"$(Get-Date) Installing Microsoft.Graph.Users.Actions module...\"\nInstall-Module Microsoft.Graph.Users.Actions -Force -Scope CurrentUser -AllowClobber -AcceptLicense\nImport-Module Microsoft.Graph.Users.Actions\nWrite-Output \"$(Get-Date) Module loaded successfully.\"\n\n# --- Connect using Managed Identity ---\nWrite-Output \"$(Get-Date) Connecting to Microsoft Graph with Managed Identity...\"\nWrite-Output \"$(Get-Date) Using Client ID: $($env:MI_CLIENT_ID)\"\nConnect-MgGraph -Identity -ClientId $env:MI_CLIENT_ID -NoWelcome\nWrite-Output \"$(Get-Date) Connected to Graph successfully.\"\n\n} catch {\n    Write-Output \"$(Get-Date) FATAL ERROR during setup: $_\"\n    Write-Output $_.ScriptStackTrace\n    exit 1\n}\n\n# --- Download and extract content zip ---\nWrite-Output \"$(Get-Date) Downloading content zip...\"\n$zipPath = Join-Path $env:HOME 'Random_Content.zip'\n$extractPath = Join-Path $env:HOME 'RandomContent'\n$useFallback = $false\n\ntry {\n    Invoke-WebRequest -Uri $ContentZipUrl -OutFile $zipPath -UseBasicParsing\n    Write-Output \"$(Get-Date) Download complete. File size: $((Get-Item $zipPath).Length) bytes\"\n} catch {\n    Write-Warning \"Could not download content zip: $_\"\n    $useFallback = $true\n}\n\nif (-not $useFallback -and (Test-Path $zipPath)) {\n    try {\n        Write-Output \"$(Get-Date) Extracting content...\"\n        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force\n        Write-Output \"$(Get-Date) Extraction complete.\"\n    } catch {\n        Write-Warning \"Failed to extract ZIP (file may not be a valid archive): $_\"\n        $useFallback = $true\n    }\n}\n\nif ($useFallback) {\n    Write-Output \"$(Get-Date) Using fallback content...\"\n    New-Item -Path $extractPath -ItemType Directory -Force | Out-Null\n    New-Item -Path \"$extractPath/MOV\" -ItemType Directory -Force | Out-Null\n    New-Item -Path \"$extractPath/MP3\" -ItemType Directory -Force | Out-Null\n    New-Item -Path \"$extractPath/JPG\" -ItemType Directory -Force | Out-Null\n    $fallbackText = 'The quick brown fox jumps over the lazy dog. Lorem ipsum dolor sit amet consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum. This is sample text for generating random email content for testing purposes in a Microsoft Defender for Office 365 environment. The emails will contain randomly selected words from this text block to simulate realistic email traffic patterns.'\n    Set-Content -Path \"$extractPath/ebook.txt\" -Value $fallbackText\n}\n\n$ebookFile = Get-ChildItem -Path $extractPath -Filter 'ebook.txt' -Recurse | Select-Object -First 1\nif ($null -eq $ebookFile) { throw 'ebook.txt not found in extracted content' }\n$contentRoot = $ebookFile.DirectoryName\n\n$movieLocation = Join-Path $contentRoot 'MOV'\n$audioLocation = Join-Path $contentRoot 'MP3'\n$imageLocation = Join-Path $contentRoot 'JPG'\n\nFunction Get-RandomText([Array]$stringArray) {\n    $selectedText = ''\n    $maximumWords = Get-Random -Minimum 100 -Maximum 1000\n    for ($i = 0; $i -lt $maximumWords; $i++) {\n        $selectedText += $stringArray[(Get-Random -Maximum $stringArray.Count)] + ' '\n    }\n    return $selectedText\n}\n\nFunction Get-EmailSubject([Array]$stringArray) {\n    $selectedText = ''\n    $maximumWords = Get-Random -Minimum 1 -Maximum 10\n    for ($i = 0; $i -lt $maximumWords; $i++) {\n        $selectedText += $stringArray[(Get-Random -Maximum $stringArray.Count)] + ' '\n    }\n    return $selectedText\n}\n\n$gtubeString = 'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X'\n\n$textFile = Get-Content $ebookFile.FullName\n$stringArray = @($textFile -split '\\s+')\n\n$movieFiles = if (Test-Path $movieLocation) { @(Get-ChildItem -Path $movieLocation -File) } else { @() }\n$audioFiles = if (Test-Path $audioLocation) { @(Get-ChildItem -Path $audioLocation -File) } else { @() }\n$imageFiles = if (Test-Path $imageLocation) { @(Get-ChildItem -Path $imageLocation -File) } else { @() }\n\n$recipients = $ToAddresses -split ','\n$totalEmails = 0\n$gtubeThreshold = [math]::Floor($GtubePercentage / 10)\n\nforeach ($recipient in $recipients) {\n    $recipient = $recipient.Trim()\n    $toRecipientArray = @(@{ emailAddress = @{ address = $recipient } })\n    Write-Output \"`n$(Get-Date) Sending $EmailsPerRecipient emails to $recipient...\"\n\n    for ($tracker = 1; $tracker -le $EmailsPerRecipient; $tracker++) {\n        $selectedText = Get-RandomText -stringArray $stringArray\n        $selectedSubject = Get-EmailSubject -stringArray $stringArray\n\n        $numberSelected = Get-Random -Minimum 1 -Maximum 11\n        $selectedAttachment = $null\n\n        switch ($numberSelected) {\n            1 { if ($movieFiles.Count -gt 0) { $selectedAttachment = $movieFiles[(Get-Random -Maximum $movieFiles.Count)].FullName } }\n            2 { if ($audioFiles.Count -gt 0) { $selectedAttachment = $audioFiles[(Get-Random -Maximum $audioFiles.Count)].FullName } }\n            3 { if ($imageFiles.Count -gt 0) { $selectedAttachment = $imageFiles[(Get-Random -Maximum $imageFiles.Count)].FullName } }\n            default { $selectedAttachment = $null }\n        }\n\n        $injectGtube = (Get-Random -Minimum 1 -Maximum 11) -le $gtubeThreshold\n        if ($injectGtube) {\n            $selectedText += \"`n`n$gtubeString`n\"\n        }\n\n        if ($null -ne $selectedAttachment -and (Test-Path $selectedAttachment)) {\n            $base64Bytes = [Convert]::ToBase64String([IO.File]::ReadAllBytes($selectedAttachment))\n            $params = @{\n                message = @{\n                    subject = $selectedSubject\n                    body = @{ contentType = 'Text'; content = $selectedText }\n                    toRecipients = @($toRecipientArray)\n                    attachments = @(@{\n                        '@odata.type' = '#microsoft.graph.fileAttachment'\n                        name = (Split-Path $selectedAttachment -Leaf)\n                        contentType = 'application/octet-stream'\n                        contentBytes = $base64Bytes\n                    })\n                }\n                saveToSentItems = 'false'\n            }\n        } else {\n            $params = @{\n                message = @{\n                    subject = $selectedSubject\n                    body = @{ contentType = 'Text'; content = $selectedText }\n                    toRecipients = @($toRecipientArray)\n                }\n                saveToSentItems = 'false'\n            }\n        }\n\n        $gtubeFlag = if ($injectGtube) { '[GTUBE]' } else { '' }\n        $attachName = if ($selectedAttachment) { Split-Path $selectedAttachment -Leaf } else { 'none' }\n\n        try {\n            Send-MgUserMail -UserId $FromAddress -BodyParameter $params\n            Write-Output \"[$recipient] Email $tracker/$EmailsPerRecipient $gtubeFlag - $selectedSubject - Attach: $attachName\"\n        } catch {\n            Write-Warning \"[$recipient] Email $tracker FAILED: $_\"\n        }\n\n        $totalEmails++\n        Start-Sleep -Milliseconds 500\n    }\n}\n\nWrite-Output \"`n$(Get-Date) Complete. Sent $totalEmails total emails.\""
-  },
-  "resources": [
-    {
-      "type": "Microsoft.ContainerInstance/containerGroups",
-      "apiVersion": "2023-05-01",
-      "name": "[variables('containerGroupName')]",
-      "location": "[parameters('location')]",
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[parameters('managedIdentityResourceId')]": {}
-        }
-      },
-      "properties": {
-        "containers": [
-          {
-            "name": "send-emails",
-            "properties": {
-              "image": "mcr.microsoft.com/azure-powershell:latest",
-              "command": [
-                "pwsh",
-                "-File",
-                "/mnt/scripts/send-emails.ps1",
-                "-ContentZipUrl",
-                "[parameters('contentZipUrl')]",
-                "-ToAddresses",
-                "[parameters('toAddresses')]",
-                "-FromAddress",
-                "[parameters('fromAddress')]",
-                "-EmailsPerRecipient",
-                "[string(parameters('emailsPerRecipient'))]",
-                "-GtubePercentage",
-                "[string(parameters('gtubePercentage'))]"
-              ],
-              "environmentVariables": [
-                {
-                  "name": "MI_CLIENT_ID",
-                  "value": "[reference(parameters('managedIdentityResourceId'), '2023-01-31').clientId]"
+﻿{
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion":  "1.0.0.0",
+    "metadata":  {
+                     "description":  "Deploys an Azure Container Instance running PowerShell that sends random test emails via Microsoft Graph API. Requires a User-Assigned Managed Identity with Mail.Send Graph API application permission."
+                 },
+    "parameters":  {
+                       "location":  {
+                                        "type":  "string",
+                                        "defaultValue":  "[resourceGroup().location]",
+                                        "metadata":  {
+                                                         "description":  "Azure region for all resources."
+                                                     }
+                                    },
+                       "managedIdentityResourceId":  {
+                                                         "type":  "string",
+                                                         "metadata":  {
+                                                                          "description":  "Full resource ID of a User-Assigned Managed Identity that has Mail.Send application permission on Microsoft Graph. Example: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{name}"
+                                                                      }
+                                                     },
+                       "contentZipUrl":  {
+                                             "type":  "string",
+                                             "defaultValue":  "https://leeejeffries-my.sharepoint.com/:u:/p/leee_jeffries/EZtHB7ripE5Gs1f8o8s4dLEBx7tdGgPqFhVtdLm4Nor-yw?download=1",
+                                             "metadata":  {
+                                                              "description":  "URL to download the Random_Content.zip file containing ebook.txt, MOV, MP3, and JPG folders."
+                                                          }
+                                         },
+                       "toAddresses":  {
+                                           "type":  "string",
+                                           "metadata":  {
+                                                            "description":  "Comma-separated list of recipient email addresses."
+                                                        }
+                                       },
+                       "fromAddress":  {
+                                           "type":  "string",
+                                           "metadata":  {
+                                                            "description":  "Sender email address (must be a valid mailbox the managed identity can send as)."
+                                                        }
+                                       },
+                       "emailsPerRecipient":  {
+                                                  "type":  "int",
+                                                  "defaultValue":  20,
+                                                  "metadata":  {
+                                                                   "description":  "Number of emails to send to each recipient."
+                                                               }
+                                              },
+                       "threatTestPercentage":  {
+                                               "type":  "int",
+                                               "defaultValue":  30,
+                                               "minValue":  0,
+                                               "maxValue":  100,
+                                               "metadata":  {
+                                                                "description":  "Percentage of emails that will include a threat test payload - GTUBE spam string, phishing test URL, or EICAR test attachment (0-100)."
+                                                            }
+                                           }
+                   },
+    "variables":  {
+                      "containerGroupName":  "[format(\u0027send-emails-{0}\u0027, uniqueString(resourceGroup().id, \u0027SendRandomEmails\u0027))]",
+                      "scriptContent":  "param(\n    [string]$ContentZipUrl,\n    [string]$ToAddresses,\n    [string]$FromAddress,\n    [int]$EmailsPerRecipient = 20,\n    [int]$ThreatTestPercentage = 30\n)\n\n$ErrorActionPreference = \u0027Stop\u0027\n\ntry {\n\n# --- Trust PSGallery ---\nWrite-Output \"$(Get-Date) Configuring PSGallery...\"\n[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\nSet-PSRepository -Name PSGallery -InstallationPolicy Trusted\n\n# --- Install Microsoft.Graph.Users.Actions module ---\nWrite-Output \"$(Get-Date) Installing Microsoft.Graph.Users.Actions module...\"\nInstall-Module Microsoft.Graph.Users.Actions -Force -Scope CurrentUser -AllowClobber -AcceptLicense\nImport-Module Microsoft.Graph.Users.Actions\nWrite-Output \"$(Get-Date) Module loaded successfully.\"\n\n# --- Connect using Managed Identity ---\nWrite-Output \"$(Get-Date) Connecting to Microsoft Graph with Managed Identity...\"\nWrite-Output \"$(Get-Date) Using Client ID: $($env:MI_CLIENT_ID)\"\nConnect-MgGraph -Identity -ClientId $env:MI_CLIENT_ID -NoWelcome\nWrite-Output \"$(Get-Date) Connected to Graph successfully.\"\n\n} catch {\n    Write-Output \"$(Get-Date) FATAL ERROR during setup: $_\"\n    Write-Output $_.ScriptStackTrace\n    exit 1\n}\n\n# --- Download and extract content zip ---\nWrite-Output \"$(Get-Date) Downloading content zip...\"\n$zipPath = Join-Path $env:HOME \u0027Random_Content.zip\u0027\n$extractPath = Join-Path $env:HOME \u0027RandomContent\u0027\n$useFallback = $false\n\ntry {\n    Invoke-WebRequest -Uri $ContentZipUrl -OutFile $zipPath -UseBasicParsing\n    Write-Output \"$(Get-Date) Download complete. File size: $((Get-Item $zipPath).Length) bytes\"\n} catch {\n    Write-Warning \"Could not download content zip: $_\"\n    $useFallback = $true\n}\n\nif (-not $useFallback -and (Test-Path $zipPath)) {\n    try {\n        Write-Output \"$(Get-Date) Extracting content...\"\n        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force\n        Write-Output \"$(Get-Date) Extraction complete.\"\n    } catch {\n        Write-Warning \"Failed to extract ZIP (file may not be a valid archive): $_\"\n        $useFallback = $true\n    }\n}\n\nif ($useFallback) {\n    Write-Output \"$(Get-Date) Using fallback content...\"\n    New-Item -Path $extractPath -ItemType Directory -Force | Out-Null\n    New-Item -Path \"$extractPath/MOV\" -ItemType Directory -Force | Out-Null\n    New-Item -Path \"$extractPath/MP3\" -ItemType Directory -Force | Out-Null\n    New-Item -Path \"$extractPath/JPG\" -ItemType Directory -Force | Out-Null\n    $fallbackText = \u0027The quick brown fox jumps over the lazy dog. Lorem ipsum dolor sit amet consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum. This is sample text for generating random email content for testing purposes in a Microsoft Defender for Office 365 environment. The emails will contain randomly selected words from this text block to simulate realistic email traffic patterns.\u0027\n    Set-Content -Path \"$extractPath/ebook.txt\" -Value $fallbackText\n}\n\n$ebookFile = Get-ChildItem -Path $extractPath -Filter \u0027ebook.txt\u0027 -Recurse | Select-Object -First 1\nif ($null -eq $ebookFile) { throw \u0027ebook.txt not found in extracted content\u0027 }\n$contentRoot = $ebookFile.DirectoryName\n\n$movieLocation = Join-Path $contentRoot \u0027MOV\u0027\n$audioLocation = Join-Path $contentRoot \u0027MP3\u0027\n$imageLocation = Join-Path $contentRoot \u0027JPG\u0027\n\nFunction Get-RandomText([Array]$stringArray) {\n    $selectedText = \u0027\u0027\n    $maximumWords = Get-Random -Minimum 100 -Maximum 1000\n    for ($i = 0; $i -lt $maximumWords; $i++) {\n        $selectedText += $stringArray[(Get-Random -Maximum $stringArray.Count)] + \u0027 \u0027\n    }\n    return $selectedText\n}\n\nFunction Get-EmailSubject([Array]$stringArray) {\n    $selectedText = \u0027\u0027\n    $maximumWords = Get-Random -Minimum 1 -Maximum 10\n    for ($i = 0; $i -lt $maximumWords; $i++) {\n        $selectedText += $stringArray[(Get-Random -Maximum $stringArray.Count)] + \u0027 \u0027\n    }\n    return $selectedText\n}\n\n$gtubeString = \u0027XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X\u0027\n\n# Phishing test URLs - triggers Safe Links detection\n$phishingTestUrls = @(\n    \u0027http://testsafebrowsing.appspot.com/s/phishing.html\u0027,\n    \u0027https://testsafebrowsing.appspot.com/s/social_engineering.html\u0027,\n    \u0027http://testsafebrowsing.appspot.com/s/social_engineering_ad.html\u0027\n)\n\n# EICAR test file - triggers Safe Attachments detonation\n$eicarString = \u0027X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*\u0027\n$eicarPath = Join-Path $env:HOME \u0027eicar_test.txt\u0027\nSet-Content -Path $eicarPath -Value $eicarString -NoNewline\nWrite-Output \"$(Get-Date) EICAR test file created at $eicarPath\"\n\n$textFile = Get-Content $ebookFile.FullName\n$stringArray = @($textFile -split \u0027\\s+\u0027)\n\n$movieFiles = if (Test-Path $movieLocation) { @(Get-ChildItem -Path $movieLocation -File) } else { @() }\n$audioFiles = if (Test-Path $audioLocation) { @(Get-ChildItem -Path $audioLocation -File) } else { @() }\n$imageFiles = if (Test-Path $imageLocation) { @(Get-ChildItem -Path $imageLocation -File) } else { @() }\n\n$recipients = $ToAddresses -split \u0027,\u0027\n$totalEmails = 0\n$threatThreshold = [math]::Floor($ThreatTestPercentage / 10)\n\nforeach ($recipient in $recipients) {\n    $recipient = $recipient.Trim()\n    $toRecipientArray = @(@{ emailAddress = @{ address = $recipient } })\n    Write-Output \"`n$(Get-Date) Sending $EmailsPerRecipient emails to $recipient...\"\n\n    for ($tracker = 1; $tracker -le $EmailsPerRecipient; $tracker++) {\n        $selectedText = Get-RandomText -stringArray $stringArray\n        $selectedSubject = Get-EmailSubject -stringArray $stringArray\n\n        $numberSelected = Get-Random -Minimum 1 -Maximum 11\n        $selectedAttachment = $null\n\n        switch ($numberSelected) {\n            1 { if ($movieFiles.Count -gt 0) { $selectedAttachment = $movieFiles[(Get-Random -Maximum $movieFiles.Count)].FullName } }\n            2 { if ($audioFiles.Count -gt 0) { $selectedAttachment = $audioFiles[(Get-Random -Maximum $audioFiles.Count)].FullName } }\n            3 { if ($imageFiles.Count -gt 0) { $selectedAttachment = $imageFiles[(Get-Random -Maximum $imageFiles.Count)].FullName } }\n            default { $selectedAttachment = $null }\n        }\n\n        $threatType = \u0027none\u0027\n        $injectThreat = (Get-Random -Minimum 1 -Maximum 11) -le $threatThreshold\n        if ($injectThreat) {\n            $threatChoice = Get-Random -Minimum 1 -Maximum 4\n            switch ($threatChoice) {\n                1 {\n                    $selectedText += \"`n`n$gtubeString`n\"\n                    $threatType = \u0027GTUBE\u0027\n                }\n                2 {\n                    $randomUrl = $phishingTestUrls[(Get-Random -Maximum $phishingTestUrls.Count)]\n                    $selectedText += \"`nClick here to verify your account: $randomUrl`n\"\n                    $threatType = \u0027PHISH-URL\u0027\n                }\n                3 {\n                    $selectedAttachment = $eicarPath\n                    $threatType = \u0027EICAR\u0027\n                }\n            }\n        }\n\n        if ($null -ne $selectedAttachment -and (Test-Path $selectedAttachment)) {\n            $base64Bytes = [Convert]::ToBase64String([IO.File]::ReadAllBytes($selectedAttachment))\n            $params = @{\n                message = @{\n                    subject = $selectedSubject\n                    body = @{ contentType = \u0027Text\u0027; content = $selectedText }\n                    toRecipients = @($toRecipientArray)\n                    attachments = @(@{\n                        \u0027@odata.type\u0027 = \u0027#microsoft.graph.fileAttachment\u0027\n                        name = (Split-Path $selectedAttachment -Leaf)\n                        contentType = \u0027application/octet-stream\u0027\n                        contentBytes = $base64Bytes\n                    })\n                }\n                saveToSentItems = \u0027false\u0027\n            }\n        } else {\n            $params = @{\n                message = @{\n                    subject = $selectedSubject\n                    body = @{ contentType = \u0027Text\u0027; content = $selectedText }\n                    toRecipients = @($toRecipientArray)\n                }\n                saveToSentItems = \u0027false\u0027\n            }\n        }\n\n        $threatFlag = if ($threatType -ne \u0027none\u0027) { \"[$threatType]\" } else { \u0027\u0027 }\n        $attachName = if ($selectedAttachment) { Split-Path $selectedAttachment -Leaf } else { \u0027none\u0027 }\n\n        try {\n            Send-MgUserMail -UserId $FromAddress -BodyParameter $params\n            Write-Output \"[$recipient] Email $tracker/$EmailsPerRecipient $threatFlag - $selectedSubject - Attach: $attachName\"\n        } catch {\n            Write-Warning \"[$recipient] Email $tracker FAILED: $_\"\n        }\n\n        $totalEmails++\n        Start-Sleep -Milliseconds 500\n    }\n}\n\nWrite-Output \"`n$(Get-Date) Complete. Sent $totalEmails total emails.\""
+                  },
+    "resources":  [
+                      {
+                          "type":  "Microsoft.ContainerInstance/containerGroups",
+                          "apiVersion":  "2023-05-01",
+                          "name":  "[variables(\u0027containerGroupName\u0027)]",
+                          "location":  "[parameters(\u0027location\u0027)]",
+                          "identity":  {
+                                           "type":  "UserAssigned",
+                                           "userAssignedIdentities":  {
+                                                                          "[parameters(\u0027managedIdentityResourceId\u0027)]":  {
+
+                                                                                                                                  }
+                                                                      }
+                                       },
+                          "properties":  {
+                                             "containers":  [
+                                                                {
+                                                                    "name":  "send-emails",
+                                                                    "properties":  {
+                                                                                       "image":  "mcr.microsoft.com/azure-powershell:latest",
+                                                                                       "command":  [
+                                                                                                       "pwsh",
+                                                                                                       "-File",
+                                                                                                       "/mnt/scripts/send-emails.ps1",
+                                                                                                       "-ContentZipUrl",
+                                                                                                       "[parameters(\u0027contentZipUrl\u0027)]",
+                                                                                                       "-ToAddresses",
+                                                                                                       "[parameters(\u0027toAddresses\u0027)]",
+                                                                                                       "-FromAddress",
+                                                                                                       "[parameters(\u0027fromAddress\u0027)]",
+                                                                                                       "-EmailsPerRecipient",
+                                                                                                       "[string(parameters(\u0027emailsPerRecipient\u0027))]",
+                                                                                                       "-ThreatTestPercentage",
+                                                                                                       "[string(parameters(\u0027threatTestPercentage\u0027))]"
+                                                                                                   ],
+                                                                                       "environmentVariables":  [
+                                                                                                                    {
+                                                                                                                        "name":  "MI_CLIENT_ID",
+                                                                                                                        "value":  "[reference(parameters(\u0027managedIdentityResourceId\u0027), \u00272023-01-31\u0027).clientId]"
+                                                                                                                    }
+                                                                                                                ],
+                                                                                       "volumeMounts":  [
+                                                                                                            {
+                                                                                                                "name":  "scripts",
+                                                                                                                "mountPath":  "/mnt/scripts",
+                                                                                                                "readOnly":  true
+                                                                                                            }
+                                                                                                        ],
+                                                                                       "resources":  {
+                                                                                                         "requests":  {
+                                                                                                                          "cpu":  1,
+                                                                                                                          "memoryInGb":  1.5
+                                                                                                                      }
+                                                                                                     }
+                                                                                   }
+                                                                }
+                                                            ],
+                                             "volumes":  [
+                                                             {
+                                                                 "name":  "scripts",
+                                                                 "secret":  {
+                                                                                "send-emails.ps1":  "[base64(variables(\u0027scriptContent\u0027))]"
+                                                                            }
+                                                             }
+                                                         ],
+                                             "osType":  "Linux",
+                                             "restartPolicy":  "Never"
+                                         }
+                      }
+                  ],
+    "outputs":  {
+                    "containerGroupId":  {
+                                             "type":  "string",
+                                             "value":  "[resourceId(\u0027Microsoft.ContainerInstance/containerGroups\u0027, variables(\u0027containerGroupName\u0027))]"
+                                         },
+                    "viewLogsCommand":  {
+                                            "type":  "string",
+                                            "value":  "[format(\u0027az container logs --resource-group {0} --name {1}\u0027, resourceGroup().name, variables(\u0027containerGroupName\u0027))]"
+                                        }
                 }
-              ],
-              "volumeMounts": [
-                {
-                  "name": "scripts",
-                  "mountPath": "/mnt/scripts",
-                  "readOnly": true
-                }
-              ],
-              "resources": {
-                "requests": {
-                  "cpu": 1,
-                  "memoryInGb": 1.5
-                }
-              }
-            }
-          }
-        ],
-        "volumes": [
-          {
-            "name": "scripts",
-            "secret": {
-              "send-emails.ps1": "[base64(variables('scriptContent'))]"
-            }
-          }
-        ],
-        "osType": "Linux",
-        "restartPolicy": "Never"
-      }
-    }
-  ],
-  "outputs": {
-    "containerGroupId": {
-      "type": "string",
-      "value": "[resourceId('Microsoft.ContainerInstance/containerGroups', variables('containerGroupName'))]"
-    },
-    "viewLogsCommand": {
-      "type": "string",
-      "value": "[format('az container logs --resource-group {0} --name {1}', resourceGroup().name, variables('containerGroupName'))]"
-    }
-  }
 }
