@@ -1,54 +1,45 @@
-# SendEmails
+# SendEmails (SMTP Branch)
 
-This project deploys a PowerShell script that sends random test emails via Microsoft Graph API. It requires a User-Assigned Managed Identity with `Mail.Send` application permission.
+This project deploys a PowerShell script that sends random test emails via SMTP (smtp.office365.com). Emails flow through the Exchange Online Protection (EOP) transport pipeline, enabling full threat detection (GTUBE, Safe Links, Safe Attachments).
 
-There are three steps to get it to work correctly. First, you must manually run the following commaands in the Azure CLI. Then you will deploy the ARM template "Deploy Random Email Script" and finally deploy the ARM template "Deploy Daily Email Schedule".
+There are two steps to get it to work correctly. First, ensure SMTP AUTH is enabled on the sending mailbox. Then deploy the ARM templates below.
 
-### Prerequisites for Random Email Script
+### Prerequisites
 
-Using the Azure CLI, follow these instructions to create and configure the managed identity:
+#### 1. Enable SMTP AUTH on the Sending Mailbox
 
-#### 1. Create a Managed Identity
-
-```bash
-az identity create --name "SendRandomEmails-MI" --resource-group <yourresourcegroup>
-```
-
-#### 2. Get the Identity's Resource ID (Save this value for later. You will need it for the first ARM template)
-
-```bash
-az identity show --name "SendRandomEmails-MI" --resource-group <yourresourcegroup> --query id -o tsv
-```
-
-#### 3. Get the Identity's Principal ID
+SMTP client authentication is disabled by default in Exchange Online. You must enable it on the mailbox that will send emails:
 
 ```powershell
-$principalId = az identity show --name "SendRandomEmails-MI" --resource-group <yourresourcegroup> --query principalId -o tsv
+Connect-ExchangeOnline
+Set-CASMailbox -Identity sender@yourdomain.com -SmtpClientAuthenticationDisabled $false
 ```
 
-#### 4. Grant Mail.Send Application Permission via Microsoft Graph
-
-> **Note:** Requires Global Admin or Privileged Role Admin.
+To verify it's enabled:
 
 ```powershell
-Connect-MgGraph -Scopes "AppRoleAssignment.ReadWrite.All"
-$graphSp = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
-$mailSendRole = $graphSp.AppRoles | Where-Object { $_.Value -eq "Mail.Send" }
-New-MgServicePrincipalAppRoleAssignment `
-    -ServicePrincipalId (Get-MgServicePrincipal -Filter "displayName eq 'SendRandomEmails-MI'").Id `
-    -PrincipalId (Get-MgServicePrincipal -Filter "displayName eq 'SendRandomEmails-MI'").Id `
-    -AppRoleId $mailSendRole.Id `
-    -ResourceId $graphSp.Id
+Get-CASMailbox -Identity sender@yourdomain.com | Select-Object SmtpClientAuthenticationDisabled
 ```
+
+The value should be `False`. If it's blank, the mailbox inherits the org-wide default — check that with:
+
+```powershell
+Get-TransportConfig | Select-Object SmtpClientAuthenticationDisabled
+```
+
+#### 2. Note the Mailbox Credentials
+
+You will need the sender email address and password for the ARM template deployment.
+
 ## Deploy Random Email Script
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2Fmain%2Farm-templates%2Fsend-random-emails-deploy.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher_microsoft%2FSendEmails%2FSendEmailsSMTP%2Farm-templates%2Fsend-random-emails-deploy.json)
 
 ## Deploy Daily Email Schedule
 
 This creates an automation account and schedules the emails to be sent daily at 8 am. You can change this as needed.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2Fmain%2Farm-templates%2Fsend-random-emails-schedule.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher_microsoft%2FSendEmails%2FSendEmailsSMTP%2Farm-templates%2Fsend-random-emails-schedule.json)
 
 Deploys an Azure Automation Account with a PowerShell runbook and daily schedule to automatically restart the send-random-emails container group.
 
