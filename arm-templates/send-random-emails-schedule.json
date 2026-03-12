@@ -168,7 +168,7 @@
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "name": "[guid(resourceGroup().id, parameters('automationAccountName'), 'Contributor')]",
+      "name": "[guid(resourceGroup().id, parameters('automationAccountName'), 'Contributor', parameters('deploymentTime'))]",
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
       ],
