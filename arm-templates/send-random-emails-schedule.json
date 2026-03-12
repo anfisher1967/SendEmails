@@ -45,12 +45,19 @@
       "metadata": {
         "description": "Time zone for the schedule (e.g. UTC, Eastern Standard Time, Pacific Standard Time)."
       }
+    },
+    "deploymentTime": {
+      "type": "string",
+      "defaultValue": "[utcNow()]",
+      "metadata": {
+        "description": "DO NOT SUPPLY — auto-generated timestamp to ensure unique jobSchedule ID on each deployment."
+      }
     }
   },
   "variables": {
     "runbookName": "Restart-SendEmailsContainer",
     "scheduleName": "DailySendEmails",
-    "jobScheduleName": "[guid(resourceGroup().id, variables('runbookName'), variables('scheduleName'))]",
+    "jobScheduleName": "[guid(resourceGroup().id, variables('runbookName'), variables('scheduleName'), parameters('deploymentTime'))]",
     "runbookScriptUri": "https://raw.githubusercontent.com/anfisher1967/SendEmails/main/arm-templates/Restart-SendEmailsContainer.ps1"
   },
   "resources": [
