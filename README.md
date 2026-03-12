@@ -33,13 +33,13 @@ You will need the sender email address and password for the ARM template deploym
 
 ## Deploy Random Email Script
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher_microsoft%2FSendEmails%2FSendEmailsSMTP%2Farm-templates%2Fsend-random-emails-deploy.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2FSendEmailsSMTP%2Farm-templates%2Fsend-random-emails-deploy.json)
 
 ## Deploy Daily Email Schedule
 
 This creates an automation account and schedules the emails to be sent daily at 8 am. You can change this as needed.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher_microsoft%2FSendEmails%2FSendEmailsSMTP%2Farm-templates%2Fsend-random-emails-schedule.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2FSendEmailsSMTP%2Farm-templates%2Fsend-random-emails-schedule.json)
 
 Deploys an Azure Automation Account with a PowerShell runbook and daily schedule to automatically restart the send-random-emails container group.
 
