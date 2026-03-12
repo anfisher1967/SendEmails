@@ -1,21 +1,20 @@
 # Restart-SendEmailsContainer.ps1
 # Azure Automation Runbook - Restarts the send-random-emails ACI container group.
 # Uses the Automation Account's system-assigned managed identity for authentication.
-
-param(
-    [Parameter(Mandatory = $true)]
-    [string]$ResourceGroupName,
-
-    [Parameter(Mandatory = $true)]
-    [string]$ContainerGroupName,
-
-    [Parameter(Mandatory = $true)]
-    [string]$SubscriptionId
-)
+# Reads configuration from Automation Account variables (set by the ARM template).
 
 try {
     Write-Output "$(Get-Date) Connecting with managed identity..."
     Connect-AzAccount -Identity | Out-Null
+
+    $SubscriptionId = Get-AutomationVariable -Name 'SubscriptionId'
+    $ResourceGroupName = Get-AutomationVariable -Name 'ResourceGroupName'
+    $ContainerGroupName = Get-AutomationVariable -Name 'ContainerGroupName'
+
+    Write-Output "$(Get-Date) Subscription: $SubscriptionId"
+    Write-Output "$(Get-Date) Resource Group: $ResourceGroupName"
+    Write-Output "$(Get-Date) Container Group: $ContainerGroupName"
+
     Set-AzContext -SubscriptionId $SubscriptionId | Out-Null
 
     Write-Output "$(Get-Date) Getting container group: $ContainerGroupName in $ResourceGroupName"

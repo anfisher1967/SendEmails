@@ -116,12 +116,46 @@
         },
         "schedule": {
           "name": "[variables('scheduleName')]"
-        },
-        "parameters": {
-          "ResourceGroupName": "[parameters('containerResourceGroup')]",
-          "ContainerGroupName": "[parameters('containerGroupName')]",
-          "SubscriptionId": "[subscription().subscriptionId]"
         }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/SubscriptionId', parameters('automationAccountName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ],
+      "properties": {
+        "value": "[format('\"{0}\"', subscription().subscriptionId)]",
+        "isEncrypted": false,
+        "description": "Subscription ID for the container group."
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/ResourceGroupName', parameters('automationAccountName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ],
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('containerResourceGroup'))]",
+        "isEncrypted": false,
+        "description": "Resource group containing the container group."
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/ContainerGroupName', parameters('automationAccountName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ],
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('containerGroupName'))]",
+        "isEncrypted": false,
+        "description": "Name of the ACI container group to restart."
       }
     },
     {
