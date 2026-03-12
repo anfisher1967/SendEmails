@@ -2,7 +2,10 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "managedIdentityResourceId": {
+    "smtpUsername": {
+      "value": ""
+    },
+    "smtpPassword": {
       "value": ""
     },
     "toAddresses": {
@@ -14,7 +17,7 @@
     "emailsPerRecipient": {
       "value": 20
     },
-    "gtubePercentage": {
+    "threatTestPercentage": {
       "value": 30
     }
   }
