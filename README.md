@@ -1,6 +1,6 @@
 # SendEmails (SMTP Branch)
 
-This project deploys a PowerShell script that sends random test emails via SMTP. The SMTP server should be your tenant's MX endpoint: `<tenant>.mail.protection.outlook.com` (e.g. `contoso.mail.protection.outlook.com`). Emails flow through the Exchange Online Protection (EOP) transport pipeline, enabling full threat detection (GTUBE, Safe Links, Safe Attachments).
+This project deploys a PowerShell script that sends random test emails via SMTP AUTH through `smtp.office365.com`. A configurable percentage of emails include threat test payloads — GTUBE (spam), Attack Simulation Training phishing URLs, and EICAR (malware) — so you can verify detection in Defender for Office 365 Threat Explorer.
 
 There are two steps to get it to work correctly. First, ensure SMTP AUTH is enabled on the sending mailbox. Then deploy the ARM templates below.
 
