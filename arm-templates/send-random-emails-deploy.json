@@ -2,7 +2,7 @@
     "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion":  "1.0.0.0",
     "metadata":  {
-                     "description":  "Deploys an Azure Container Instance running PowerShell that sends random test emails via SMTP (smtp.office365.com). Requires an M365 mailbox with SMTP AUTH enabled."
+                     "description":  "Deploys an Azure Container Instance running PowerShell that sends random test emails via SMTP. Use your tenant MX endpoint (e.g. contoso.mail.protection.outlook.com). Requires an M365 mailbox with SMTP AUTH enabled."
                  },
     "parameters":  {
                        "location":  {
@@ -14,9 +14,9 @@
                                     },
                        "smtpServer":  {
                                            "type":  "string",
-                                           "defaultValue":  "smtp.office365.com",
+                                           "defaultValue":  "contoso.mail.protection.outlook.com",
                                            "metadata":  {
-                                                            "description":  "SMTP server hostname."
+                                                            "description":  "SMTP server hostname. Use your tenant name followed by .mail.protection.outlook.com (e.g. contoso.mail.protection.outlook.com)."
                                                         }
                                        },
                        "smtpPort":  {
