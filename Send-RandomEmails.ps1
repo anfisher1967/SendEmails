@@ -67,6 +67,11 @@ $badFile = "C:\temp\Litware_SOW.doc"
 #GTUBE - Generic Test for Unsolicited Bulk Email (triggers spam detection in EOP/MDO)
 $gtubeString = "XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X"
 
+#Phishing test URLs (triggers Safe Links / URL detonation in MDO)
+$phishingTestUrls = @(
+    "https://highspamlink.contoso.com"
+)
+
 #Address details
 $toAddresses = @(
     "meganb@fancygeekgirl.com",
@@ -113,10 +118,22 @@ foreach ($recipient in $toAddresses) {
         10 {$selectedAttachment = ""}
     }
 
-    #Randomly inject GTUBE spam test string into ~30% of messages
-    $injectGtube = (Get-Random -Minimum 1 -Maximum 10) -le 3
-    if ($injectGtube) {
-        $selectedText = $selectedText + "`n`n" + $gtubeString + "`n"
+    #Randomly inject GTUBE spam test string or phishing URL into ~30% of messages
+    $injectThreat = (Get-Random -Minimum 1 -Maximum 10) -le 3
+    $threatType = "none"
+    if ($injectThreat) {
+        $threatChoice = Get-Random -Minimum 1 -Maximum 3
+        switch ($threatChoice) {
+            1 {
+                $selectedText = $selectedText + "`n`n" + $gtubeString + "`n"
+                $threatType = "GTUBE"
+            }
+            2 {
+                $randomUrl = $phishingTestUrls[(Get-Random -Maximum $phishingTestUrls.Count)]
+                $selectedText = $selectedText + "`nClick here to verify your account: $randomUrl`n"
+                $threatType = "PHISH-URL"
+            }
+        }
     }
 
     #Call the function to generate a random email Subject
@@ -163,8 +180,8 @@ foreach ($recipient in $toAddresses) {
     
     #Increment email being sent
     $tracker++
-    $gtubeFlag = if ($injectGtube) { "[GTUBE]" } else { "" }
-    "[$recipient] Email $tracker/20 - $numberSelected $gtubeFlag - $selectedSubject - $selectedAttachment"
+    $threatFlag = if ($threatType -ne "none") { "[$threatType]" } else { "" }
+    "[$recipient] Email $tracker/20 - $numberSelected $threatFlag - $selectedSubject - $selectedAttachment"
    
     } until ($tracker -eq 20)
 }
