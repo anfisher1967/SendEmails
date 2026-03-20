@@ -14,8 +14,9 @@
     },
     "smtpServer": {
       "type": "string",
+      "defaultValue": "contoso-com.mail.protection.outlook.com",
       "metadata": {
-        "description": "EOP MX endpoint hostname, e.g. 'contoso-com.mail.protection.outlook.com'. Find via: (Resolve-DnsName -Name <tenantname>.onmicrosoft.com -Type MX).NameExchange"
+        "description": "EOP MX endpoint hostname. Find yours via PowerShell: (Resolve-DnsName -Name 'yourtenant.onmicrosoft.com' -Type MX).NameExchange"
       }
     },
     "smtpPort": {
@@ -27,21 +28,23 @@
     },
     "fromAddresses": {
       "type": "string",
+      "defaultValue": "elizabeth.bennet@prideandprejudice.com,FitzwilliamDarcy@pemberly.com,Jane.Bennet@prideandprejudice.com,Charles_Bingley@Netherfield.com,Charlotte.Lucas@marrieddown.com,Lydia.Bennet@wildchild.com,George.Wickham@nogood.com",
       "metadata": {
         "description": "Comma-separated list of sender email addresses. A random sender is chosen for each round of emails."
       }
     },
     "toAddresses": {
       "type": "string",
+      "defaultValue": "meganb@contoso.com,jonis@contoso.com,leeg@contoso.com,alexw@contoso.com,adelev@contoso.com",
       "metadata": {
-        "description": "Comma-separated list of recipient email addresses."
+        "description": "Comma-separated list of recipient email addresses. Replace with your tenant's mailboxes."
       }
     },
     "subjectLines": {
       "type": "string",
-      "defaultValue": "",
+      "defaultValue": "Urgent: Verify Your Account Now|Invoice #38291 Attached|Meeting Rescheduled - Action Required|Password Expiration Notice|Quarterly Financial Report|IT Security Update Required|Shipment Delivery Confirmation|Your Subscription Renewal",
       "metadata": {
-        "description": "Pipe-separated list of custom subject lines (e.g. 'Urgent: Verify Account|Invoice Attached|Meeting Update|Action Required'). If empty, random subjects are generated from fallback text."
+        "description": "Pipe-separated list of custom subject lines. A random subject is chosen for each email."
       }
     },
     "attachmentUrls": {
