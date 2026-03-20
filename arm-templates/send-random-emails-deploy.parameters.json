@@ -14,7 +14,7 @@
     "emailsPerRecipient": {
       "value": 20
     },
-    "gtubePercentage": {
+    "threatTestPercentage": {
       "value": 30
     }
   }

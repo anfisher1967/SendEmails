@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "smtpServer": {
+      "value": ""
+    },
+    "smtpPort": {
+      "value": 587
+    },
+    "fromAddresses": {
+      "value": "elizabeth.bennet@prideandprejudice.com,FitzwilliamDarcy@pemberly.com,Jane.Bennet@prideandprejudice.com,Charles_Bingley@Netherfield.com,Charlotte.Lucas@marrieddown.com,Lydia.Bennet@wildchild.com,George.Wickham@nogood.com"
+    },
+    "toAddresses": {
+      "value": ""
+    },
+    "subjectLines": {
+      "value": "Urgent: Verify Your Account Now|Invoice #38291 Attached|Meeting Rescheduled - Action Required|Password Expiration Notice|Quarterly Financial Report|IT Security Update Required|Shipment Delivery Confirmation|Your Subscription Renewal"
+    },
+    "attachmentUrls": {
+      "value": ""
+    },
+    "emailsPerRecipient": {
+      "value": 20
+    },
+    "threatTestPercentage": {
+      "value": 30
+    },
+    "deployNatGateway": {
+      "value": false
+    }
+  }
+}

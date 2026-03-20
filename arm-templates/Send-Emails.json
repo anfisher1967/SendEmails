@@ -1,0 +1,349 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Deploys an Azure Container Instance running a custom PowerShell script that sends synthetic Spam/Phish/Malware emails via SMTP relay to EOP. Supports custom sender, subjects, attachments, and phishing URLs. Optionally deploys a NAT Gateway for static egress IP control."
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "smtpServer": {
+      "type": "string",
+      "metadata": {
+        "description": "EOP MX endpoint hostname, e.g. 'contoso-com.mail.protection.outlook.com'. Find via: (Resolve-DnsName -Name <tenantname>.onmicrosoft.com -Type MX).NameExchange"
+      }
+    },
+    "smtpPort": {
+      "type": "int",
+      "defaultValue": 587,
+      "metadata": {
+        "description": "SMTP port. Use 25 for direct-to-MX (no auth) or 587 for SMTP submission (STARTTLS)."
+      }
+    },
+    "fromAddresses": {
+      "type": "string",
+      "metadata": {
+        "description": "Comma-separated list of sender email addresses. A random sender is chosen for each round of emails."
+      }
+    },
+    "toAddresses": {
+      "type": "string",
+      "metadata": {
+        "description": "Comma-separated list of recipient email addresses."
+      }
+    },
+    "subjectLines": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Pipe-separated list of custom subject lines (e.g. 'Urgent: Verify Account|Invoice Attached|Meeting Update|Action Required'). If empty, random subjects are generated from fallback text."
+      }
+    },
+    "attachmentUrls": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Pipe-separated list of URLs to download attachment files from (e.g. 'https://example.com/report.pdf|https://example.com/data.xlsx'). Files are downloaded at startup and randomly attached to emails. Leave empty for no custom attachments."
+      }
+    },
+    "phishingTestUrls": {
+      "type": "string",
+      "defaultValue": "http://testsafebrowsing.appspot.com/s/phishing.html|https://testsafebrowsing.appspot.com/s/social_engineering.html|http://testsafebrowsing.appspot.com/s/social_engineering_ad.html",
+      "metadata": {
+        "description": "Pipe-separated list of phishing test URLs to embed in phish-type emails. These trigger Safe Links detection."
+      }
+    },
+    "emailsPerRecipient": {
+      "type": "int",
+      "defaultValue": 20,
+      "metadata": {
+        "description": "Number of emails each recipient should receive. The script sends in rounds of 5 random recipients until all have reached this count."
+      }
+    },
+    "threatTestPercentage": {
+      "type": "int",
+      "defaultValue": 30,
+      "minValue": 0,
+      "maxValue": 100,
+      "metadata": {
+        "description": "Percentage of emails that include a threat payload: GTUBE (spam), phishing URL, or EICAR (malware) attachment (0-100)."
+      }
+    },
+    "deployNatGateway": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "If true, deploys a NAT Gateway with a static public IP for controlled egress. If false, the container uses a random Azure public IP."
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.183.10.0/24",
+      "metadata": {
+        "description": "Address prefix for the VNet and subnet (only used when deployNatGateway is true)."
+      }
+    }
+  },
+  "variables": {
+    "containerGroupName": "[format('send-emails-{0}', uniqueString(resourceGroup().id, 'SendEmails'))]",
+    "publicIpName": "nat-pip",
+    "natGatewayName": "natgateway",
+    "nsgName": "send-emails-nsg",
+    "vnetName": "send-emails-vnet",
+    "subnetName": "send-emails-subnet",
+    "scriptContent": "param(\n    [string]$SmtpServer,\n    [int]$SmtpPort = 587,\n    [string]$FromAddresses,\n    [string]$ToAddresses,\n    [string]$SubjectLines,\n    [string]$AttachmentUrls,\n    [string]$PhishingTestUrls,\n    [int]$EmailsPerRecipient = 20,\n    [int]$ThreatTestPercentage = 30\n)\n\n$ErrorActionPreference = 'Stop'\n\nWrite-Output \"$(Get-Date) === Send-Emails SMTP Script ===\"\nWrite-Output \"$(Get-Date) SMTP Server: $SmtpServer : $SmtpPort\"\nWrite-Output \"$(Get-Date) From: $FromAddresses\"\nWrite-Output \"$(Get-Date) Emails per recipient: $EmailsPerRecipient\"\nWrite-Output \"$(Get-Date) Threat percentage: $ThreatTestPercentage%\"\n\n# --- Parse phishing URLs ---\n$phishUrls = @()\nif ($PhishingTestUrls) {\n    $phishUrls = @($PhishingTestUrls -split '\\|' | ForEach-Object { $_.Trim() } | Where-Object { $_ })\n}\nWrite-Output \"$(Get-Date) Phishing test URLs loaded: $($phishUrls.Count)\"\n\n# --- Parse custom subject lines ---\n$customSubjects = @()\nif ($SubjectLines) {\n    $customSubjects = @($SubjectLines -split '\\|' | ForEach-Object { $_.Trim() } | Where-Object { $_ })\n}\nWrite-Output \"$(Get-Date) Custom subjects loaded: $($customSubjects.Count)\"\n\n# --- Fallback text for random subject/body generation ---\n$fallbackWords = @('Urgent','Meeting','Update','Invoice','Review','Quarterly','Report','Action','Required','Approval','Budget','Forecast','Schedule','Compliance','Security','Training','Deadline','Reminder','Contract','Proposal','Summary','Feedback','Notification','Alert','Request','Confirmation','Delivery','Shipment','Account','Verification','Password','Reset','Subscription','Renewal','Payment','Receipt','Refund','Dispute','Warranty','Support','Ticket','Incident','Resolution','Escalation','Priority','Critical','Advisory','Bulletin','Release','Patch','Maintenance','Outage','Restore','Backup','Audit','Policy','Procedure','Guidelines','Standards','Framework','Assessment','Evaluation','Performance','Metrics','Dashboard','Analytics','Insights','Trends','Benchmark','Optimization','Strategy','Roadmap','Initiative','Project','Milestone','Deliverable','Stakeholder','Collaboration','Integration','Migration','Deployment','Configuration','Documentation','Specification','Architecture','Infrastructure','Capacity','Scalability','Availability','Reliability','Monitoring','Alerting','Logging','Diagnostics','Troubleshooting','Resolution','Workaround','Hotfix','Rollback','Recovery','Contingency','Continuity')\n\n# --- Download custom attachments ---\n$attachmentFiles = @()\nif ($AttachmentUrls) {\n    $urls = @($AttachmentUrls -split '\\|' | ForEach-Object { $_.Trim() } | Where-Object { $_ })\n    $dlDir = Join-Path $env:HOME 'attachments'\n    New-Item -Path $dlDir -ItemType Directory -Force | Out-Null\n    foreach ($url in $urls) {\n        try {\n            $fileName = [System.IO.Path]::GetFileName(([uri]$url).LocalPath)\n            if (-not $fileName) { $fileName = 'attachment.bin' }\n            $destPath = Join-Path $dlDir $fileName\n            Write-Output \"$(Get-Date) Downloading attachment: $url\"\n            Invoke-WebRequest -Uri $url -OutFile $destPath -UseBasicParsing -TimeoutSec 60\n            $attachmentFiles += $destPath\n            Write-Output \"$(Get-Date) Downloaded: $fileName ($((Get-Item $destPath).Length) bytes)\"\n        } catch {\n            Write-Warning \"Failed to download $url : $_\"\n        }\n    }\n}\nWrite-Output \"$(Get-Date) Custom attachments available: $($attachmentFiles.Count)\"\n\n# --- Create EICAR test file ---\n$eicarString = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'\n$eicarPath = Join-Path $env:HOME 'eicar_test.txt'\nSet-Content -Path $eicarPath -Value $eicarString -NoNewline\nWrite-Output \"$(Get-Date) EICAR test file created.\"\n\n# --- GTUBE string ---\n$gtubeString = 'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X'\n\n# --- Helper functions ---\nfunction Get-RandomSubject {\n    if ($customSubjects.Count -gt 0) {\n        return $customSubjects[(Get-Random -Maximum $customSubjects.Count)]\n    }\n    $wordCount = Get-Random -Minimum 2 -Maximum 8\n    $words = 1..$wordCount | ForEach-Object { $fallbackWords[(Get-Random -Maximum $fallbackWords.Count)] }\n    return ($words -join ' ')\n}\n\nfunction Get-RandomBody {\n    $wordCount = Get-Random -Minimum 50 -Maximum 300\n    $words = 1..$wordCount | ForEach-Object { $fallbackWords[(Get-Random -Maximum $fallbackWords.Count)] }\n    return ($words -join ' ')\n}\n\nfunction Send-SmtpEmail {\n    param(\n        [string]$From,\n        [string]$To,\n        [string]$Subject,\n        [string]$Body,\n        [string]$AttachmentPath,\n        [string]$Server,\n        [int]$Port\n    )\n    $msg = New-Object System.Net.Mail.MailMessage\n    $msg.From = $From\n    $msg.To.Add($To)\n    $msg.Subject = $Subject\n    $msg.Body = $Body\n    $msg.IsBodyHtml = $false\n    if ($AttachmentPath -and (Test-Path $AttachmentPath)) {\n        $attach = New-Object System.Net.Mail.Attachment($AttachmentPath)\n        $msg.Attachments.Add($attach)\n    }\n    $smtp = New-Object System.Net.Mail.SmtpClient($Server, $Port)\n    if ($Port -eq 587) {\n        $smtp.EnableSsl = $true\n    }\n    $smtp.Timeout = 30000\n    try {\n        $smtp.Send($msg)\n    } finally {\n        if ($msg.Attachments) { $msg.Attachments.Dispose() }\n        $msg.Dispose()\n        $smtp.Dispose()\n    }\n}\n\n# --- Parse sender addresses ---\n$senders = @($FromAddresses -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })\nWrite-Output \"$(Get-Date) Senders loaded: $($senders.Count) - $($senders -join ', ')\"\n\n# --- Main send loop ---\n$recipients = @($ToAddresses -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })\nWrite-Output \"$(Get-Date) Recipients loaded: $($recipients.Count) - $($recipients -join ', ')\"\nWrite-Output \"$(Get-Date) Target: $EmailsPerRecipient emails x $($recipients.Count) recipients\"\n$threatThreshold = [math]::Floor($ThreatTestPercentage / 10)\n$sentCount = 0\n$round = 0\n\n# Track per-recipient counts\n$recipientCount = @{}\nforeach ($r in $recipients) { $recipientCount[$r] = 0 }\n\nwhile (($recipientCount.Values | Where-Object { $_ -lt $EmailsPerRecipient }).Count -gt 0) {\n    $round++\n    $sender = $senders[(Get-Random -Maximum $senders.Count)]\n    $remaining = @($recipientCount.Keys | Where-Object { $recipientCount[$_] -lt $EmailsPerRecipient })\n    $pickCount = [math]::Min(5, $remaining.Count)\n    $selectedRecipients = $remaining | Get-Random -Count $pickCount\n\n    $subject = Get-RandomSubject\n    $body = Get-RandomBody\n    $attachPath = $null\n    $threatType = 'clean'\n\n    if ($attachmentFiles.Count -gt 0 -and (Get-Random -Minimum 1 -Maximum 11) -le 3) {\n        $attachPath = $attachmentFiles[(Get-Random -Maximum $attachmentFiles.Count)]\n    }\n\n    $injectThreat = (Get-Random -Minimum 1 -Maximum 11) -le $threatThreshold\n    if ($injectThreat) {\n        $threatChoice = Get-Random -Minimum 1 -Maximum 4\n        switch ($threatChoice) {\n            1 {\n                $body += \"`n`n$gtubeString`n\"\n                $threatType = 'GTUBE-SPAM'\n            }\n            2 {\n                if ($phishUrls.Count -gt 0) {\n                    $randomUrl = $phishUrls[(Get-Random -Maximum $phishUrls.Count)]\n                    $body += \"`nPlease verify your account immediately: $randomUrl`n\"\n                    $threatType = 'PHISH-URL'\n                }\n            }\n            3 {\n                $attachPath = $eicarPath\n                $threatType = 'EICAR-MALWARE'\n            }\n        }\n    }\n\n    $attachName = if ($attachPath) { Split-Path $attachPath -Leaf } else { 'none' }\n    foreach ($recipient in $selectedRecipients) {\n        try {\n            Send-SmtpEmail -From $sender -To $recipient -Subject $subject -Body $body -AttachmentPath $attachPath -Server $SmtpServer -Port $SmtpPort\n            $recipientCount[$recipient]++\n            Write-Output \"[Round $round] -> $recipient ($($recipientCount[$recipient])/$EmailsPerRecipient) [$threatType] Subject: $subject Attach: $attachName\"\n            $sentCount++\n        } catch {\n            Write-Warning \"[Round $round] -> $recipient FAILED: $_\"\n        }\n    }\n    Start-Sleep -Milliseconds 500\n}\n\nWrite-Output \"`n$(Get-Date) Complete. Sent $sentCount total messages ($EmailsPerRecipient each to $($recipients.Count) recipients) in $round rounds.\""
+  },
+  "resources": [
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('publicIpName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "publicIPAddressVersion": "IPv4"
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/natGateways",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('natGatewayName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+      ],
+      "properties": {
+        "publicIpAddresses": [
+          {
+            "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('nsgName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-smtp-outbound",
+            "properties": {
+              "description": "Allow SMTP submission (STARTTLS) outbound to EOP",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "587",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Outbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('vnetName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/natGateways', variables('natGatewayName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "dhcpOptions": {
+          "dnsServers": [
+            "1.1.1.1",
+            "1.0.0.1"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('vnetAddressPrefix')]",
+              "natGateway": {
+                "id": "[resourceId('Microsoft.Network/natGateways', variables('natGatewayName'))]"
+              },
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              },
+              "delegations": [
+                {
+                  "name": "Microsoft.ContainerInstance.containerGroups",
+                  "properties": {
+                    "serviceName": "Microsoft.ContainerInstance/containerGroups"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[not(parameters('deployNatGateway'))]",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('containerGroupName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "containers": [
+          {
+            "name": "send-emails",
+            "properties": {
+              "image": "mcr.microsoft.com/azure-powershell:latest",
+              "command": [
+                "pwsh", "-File", "/mnt/scripts/send-emails.ps1",
+                "-SmtpServer", "[parameters('smtpServer')]",
+                "-SmtpPort", "[string(parameters('smtpPort'))]",
+                "-FromAddresses", "[parameters('fromAddresses')]",
+                "-ToAddresses", "[parameters('toAddresses')]",
+                "-SubjectLines", "[parameters('subjectLines')]",
+                "-AttachmentUrls", "[parameters('attachmentUrls')]",
+                "-PhishingTestUrls", "[parameters('phishingTestUrls')]",
+                "-EmailsPerRecipient", "[string(parameters('emailsPerRecipient'))]",
+                "-ThreatTestPercentage", "[string(parameters('threatTestPercentage'))]"
+              ],
+              "volumeMounts": [
+                {
+                  "name": "scripts",
+                  "mountPath": "/mnt/scripts",
+                  "readOnly": true
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": 1,
+                  "memoryInGb": 1.5
+                }
+              }
+            }
+          }
+        ],
+        "volumes": [
+          {
+            "name": "scripts",
+            "secret": {
+              "send-emails.ps1": "[base64(variables('scriptContent'))]"
+            }
+          }
+        ],
+        "osType": "Linux",
+        "ipAddress": {
+          "type": "Public",
+          "ports": [
+            {
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        },
+        "restartPolicy": "Never"
+      }
+    },
+    {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('containerGroupName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+      ],
+      "properties": {
+        "containers": [
+          {
+            "name": "send-emails",
+            "properties": {
+              "image": "mcr.microsoft.com/azure-powershell:latest",
+              "command": [
+                "pwsh", "-File", "/mnt/scripts/send-emails.ps1",
+                "-SmtpServer", "[parameters('smtpServer')]",
+                "-SmtpPort", "[string(parameters('smtpPort'))]",
+                "-FromAddresses", "[parameters('fromAddresses')]",
+                "-ToAddresses", "[parameters('toAddresses')]",
+                "-SubjectLines", "[parameters('subjectLines')]",
+                "-AttachmentUrls", "[parameters('attachmentUrls')]",
+                "-PhishingTestUrls", "[parameters('phishingTestUrls')]",
+                "-EmailsPerRecipient", "[string(parameters('emailsPerRecipient'))]",
+                "-ThreatTestPercentage", "[string(parameters('threatTestPercentage'))]"
+              ],
+              "volumeMounts": [
+                {
+                  "name": "scripts",
+                  "mountPath": "/mnt/scripts",
+                  "readOnly": true
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": 1,
+                  "memoryInGb": 1.5
+                }
+              }
+            }
+          }
+        ],
+        "volumes": [
+          {
+            "name": "scripts",
+            "secret": {
+              "send-emails.ps1": "[base64(variables('scriptContent'))]"
+            }
+          }
+        ],
+        "osType": "Linux",
+        "subnetIds": [
+          {
+            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]",
+            "name": "[variables('subnetName')]"
+          }
+        ],
+        "restartPolicy": "Never"
+      }
+    }
+  ],
+  "outputs": {
+    "containerGroupId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ContainerInstance/containerGroups', variables('containerGroupName'))]"
+    },
+    "containerGroupName": {
+      "type": "string",
+      "value": "[variables('containerGroupName')]"
+    },
+    "viewLogsCommand": {
+      "type": "string",
+      "value": "[format('az container logs --resource-group {0} --name {1}', resourceGroup().name, variables('containerGroupName'))]"
+    },
+    "natGatewayPublicIp": {
+      "condition": "[parameters('deployNatGateway')]",
+      "type": "string",
+      "value": "[if(parameters('deployNatGateway'), reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2023-11-01').ipAddress, 'N/A - using random public IP')]"
+    }
+  }
+}

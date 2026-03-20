@@ -75,7 +75,8 @@ $toAddresses = @(
     "alexw@fancygeekgirl.com",
     "adelev@fancygeekgirl.com"
 )
-$fromAddress = "anfisher@fancygeekgirl.com"
+#$fromAddress = "anfisher@fancygeekgirl.com"
+$fromAddress = "devops@tailspintoys.com"
 
 #Create all arrays of files and an array of words from the ebook
 $movieFiles = @(Get-ChildItem -Path $movieLocation)
