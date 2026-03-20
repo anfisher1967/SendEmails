@@ -1,10 +1,57 @@
 # SendEmails
 
-This project deploys a PowerShell script that sends random test emails via Microsoft Graph API. It requires a User-Assigned Managed Identity with `Mail.Send` application permission.
+This project deploys Azure Container Instances that send synthetic Spam/Phish/Malware emails to populate your MCAPS tenant with MDO detections for Threat Explorer, Advanced Hunting, and reporting.
 
-There are three steps to get it to work correctly. First, you must manually run the following commaands in the Azure CLI. Then you will deploy the ARM template "Deploy Random Email Script" and finally deploy the ARM template "Deploy Daily Email Schedule".
+Two approaches are available:
 
-### Prerequisites for Random Email Script
+| Template | Method | Auth Required? |
+|----------|--------|----------------|
+| **Send-Emails.json** (SMTP relay) | Direct SMTP to EOP MX endpoint | None |
+| send-random-emails-deploy.json (Graph API) | Microsoft Graph `Mail.Send` | Managed Identity |
+
+---
+
+## Option 1: SMTP Relay (Recommended)
+
+No managed identity or Graph permissions needed. Emails are sent directly to your tenant's EOP MX endpoint via SMTP.
+
+### Prerequisites
+
+1. Find your EOP SMTP endpoint:
+   ```powershell
+   (Resolve-DnsName -Name "yourtenant.onmicrosoft.com" -Type MX).NameExchange
+   ```
+2. Fill in [Send-Emails.parameters.json](arm-templates/Send-Emails.parameters.json):
+   - `smtpServer` — your MX endpoint from step 1
+   - `toAddresses` — comma-separated recipient mailboxes
+   - `fromAddresses` — comma-separated sender addresses (already populated with defaults)
+
+### Deploy SMTP Email Sender
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fanfisher1967%2FSendEmails%2FSendEmails2%2Farm-templates%2FSend-Emails.json)
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `smtpServer` | *(required)* | EOP MX endpoint |
+| `smtpPort` | `587` | SMTP port (587 for STARTTLS, 25 for direct) |
+| `fromAddresses` | *(required)* | Comma-separated sender addresses (random per round) |
+| `toAddresses` | *(required)* | Comma-separated recipient mailboxes |
+| `subjectLines` | Sample subjects | Pipe-separated custom subject lines |
+| `attachmentUrls` | *(empty)* | Pipe-separated URLs to files to download and attach |
+| `phishingTestUrls` | Google Safe Browsing test URLs | Pipe-separated phishing test URLs |
+| `emailsPerRecipient` | `20` | Emails each recipient receives |
+| `threatTestPercentage` | `30` | % of emails with GTUBE/Phish URL/EICAR payload |
+| `deployNatGateway` | `false` | Deploy NAT Gateway for static egress IP |
+
+---
+
+## Option 2: Graph API (Alternative)
+
+Sends via Microsoft Graph API using a User-Assigned Managed Identity with `Mail.Send` permission.
+
+### Prerequisites for Graph API
 
 Using the Azure CLI, follow these instructions to create and configure the managed identity:
 
