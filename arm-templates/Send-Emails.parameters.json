@@ -5,8 +5,11 @@
     "tenantName": {
       "value": "contoso"
     },
+    "deployNatGateway": {
+      "value": true
+    },
     "smtpPort": {
-      "value": 587
+      "value": 25
     },
     "toAddresses": {
       "value": ""

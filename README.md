@@ -30,10 +30,13 @@ No managed identity or Graph permissions needed. Emails are sent directly to you
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `tenantName` | `contoso` | Your tenant name — SMTP endpoint is derived automatically |
-| `smtpPort` | `587` | SMTP port (587 for STARTTLS, 25 for direct) |
+| `deployNatGateway` | `true` | Deploy NAT Gateway for reliable outbound SMTP on port 25 (recommended) |
+| `smtpPort` | `25` | SMTP port for direct-to-MX delivery |
 | `toAddresses` | *(required)* | Comma-separated recipient mailboxes |
 | `emailsPerRecipient` | `20` | Emails each recipient receives |
 | `threatTestPercentage` | `30` | % of emails with GTUBE/Phish URL/EICAR payload |
+
+> **Note:** A NAT Gateway is deployed by default to bypass Azure's outbound port 25 restrictions. This creates a Public IP, NAT Gateway, VNet, NSG, and Subnet. Set `deployNatGateway` to `false` if your subscription already allows outbound SMTP.
 
 ---
 
