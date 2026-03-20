@@ -28,9 +28,8 @@
     },
     "toAddresses": {
       "type": "string",
-      "defaultValue": "meganb@contoso.com,jonis@contoso.com,leeg@contoso.com,alexw@contoso.com,adelev@contoso.com",
       "metadata": {
-        "description": "Comma-separated list of recipient email addresses. Replace with your tenant's mailboxes."
+        "description": "Comma-separated list of recipient email addresses."
       }
     },
     "emailsPerRecipient": {
