@@ -98,15 +98,6 @@
           }
         ],
         "osType": "Linux",
-        "ipAddress": {
-          "type": "Public",
-          "ports": [
-            {
-              "port": 80,
-              "protocol": "TCP"
-            }
-          ]
-        },
         "restartPolicy": "Never"
       }
     }
