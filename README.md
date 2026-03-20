@@ -17,14 +17,9 @@ No managed identity or Graph permissions needed. Emails are sent directly to you
 
 ### Prerequisites
 
-1. Find your EOP SMTP endpoint:
-   ```powershell
-   (Resolve-DnsName -Name "yourtenant.onmicrosoft.com" -Type MX).NameExchange
-   ```
-2. Fill in [Send-Emails.parameters.json](arm-templates/Send-Emails.parameters.json):
-   - `smtpServer` — your MX endpoint from step 1
+1. Fill in [Send-Emails.parameters.json](arm-templates/Send-Emails.parameters.json):
+   - `tenantDomain` — your tenant's email domain (e.g. `contoso.com`)
    - `toAddresses` — comma-separated recipient mailboxes
-   - `fromAddresses` — comma-separated sender addresses (already populated with defaults)
 
 ### Deploy SMTP Email Sender
 
@@ -34,16 +29,11 @@ No managed identity or Graph permissions needed. Emails are sent directly to you
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `smtpServer` | *(required)* | EOP MX endpoint |
+| `tenantDomain` | `contoso.com` | Your tenant's email domain — SMTP endpoint is derived automatically |
 | `smtpPort` | `587` | SMTP port (587 for STARTTLS, 25 for direct) |
-| `fromAddresses` | *(required)* | Comma-separated sender addresses (random per round) |
 | `toAddresses` | *(required)* | Comma-separated recipient mailboxes |
-| `subjectLines` | Sample subjects | Pipe-separated custom subject lines |
-| `attachmentUrls` | *(empty)* | Pipe-separated URLs to files to download and attach |
-| `phishingTestUrls` | Google Safe Browsing test URLs | Pipe-separated phishing test URLs |
 | `emailsPerRecipient` | `20` | Emails each recipient receives |
 | `threatTestPercentage` | `30` | % of emails with GTUBE/Phish URL/EICAR payload |
-| `deployNatGateway` | `false` | Deploy NAT Gateway for static egress IP |
 
 ---
 
