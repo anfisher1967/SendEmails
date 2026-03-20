@@ -18,7 +18,7 @@ No managed identity or Graph permissions needed. Emails are sent directly to you
 ### Prerequisites
 
 1. Fill in [Send-Emails.parameters.json](arm-templates/Send-Emails.parameters.json):
-   - `tenantDomain` — your tenant's email domain (e.g. `contoso.com`)
+   - `tenantName` — your tenant name (e.g. `contoso`)
    - `toAddresses` — comma-separated recipient mailboxes
 
 ### Deploy SMTP Email Sender
@@ -29,7 +29,7 @@ No managed identity or Graph permissions needed. Emails are sent directly to you
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `tenantDomain` | `contoso.com` | Your tenant's email domain — SMTP endpoint is derived automatically |
+| `tenantName` | `contoso` | Your tenant name — SMTP endpoint is derived automatically |
 | `smtpPort` | `587` | SMTP port (587 for STARTTLS, 25 for direct) |
 | `toAddresses` | *(required)* | Comma-separated recipient mailboxes |
 | `emailsPerRecipient` | `20` | Emails each recipient receives |
